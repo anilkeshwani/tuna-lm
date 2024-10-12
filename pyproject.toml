@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tunalm"
+authors = [
+{ name = "Anil Keshwani", email = "anilkeshwani1@gmail.com" },
+]
+description = "Fine-tuning and continued pre-training for (L)LMs based on torchtune."
+requires-python = "==3.10.6"
+license = { file = "LICENSE" }
+dynamic = ["dependencies", "version", "readme"]
+
+[tool.setuptools]
+packages = ["tunalm"]
+
+[tool.setuptools_scm]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+readme = { file = ["README.md"] }
+
+[project.optional-dependencies]
+dev = [
+"black==24.4.2",
+"isort==5.13.2",
+"pipreqs==0.5.0",
+"pre-commit==3.8.0",
+"shfmt-py==3.7.0.1",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+lines_after_imports = 2
+force_alphabetical_sort_within_sections = true
