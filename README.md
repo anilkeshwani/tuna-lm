@@ -5,10 +5,15 @@ Recipes for fine-tuning and continued pre-training for (L)LMs based on [torchtun
 # Setup
 
 ```bash
-conda create -y --name tunalm python=3.10.6 &&
+git submodule update --init --recursive &&
+    conda create -y --name tunalm python=3.10.6 &&
     conda activate tunalm &&
+    pip install -e ./submodules/torchtune/ &&
     pip install -e .["dev"]
 ```
+
+> [!NOTE] 
+> torchtune (local version) is not referenced by requirements.txt. It is not installable via `pip install -e .` despite being installable via `pip install -r requirements.txt`.
 
 # Train
 
