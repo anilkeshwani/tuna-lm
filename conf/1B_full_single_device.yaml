@@ -74,6 +74,7 @@ lr_scheduler:
 
 loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
+clip_grad_norm: null
 
 # Fusing optimizer step into backward pass;
 # see https://pytorch.org/tutorials/intermediate/optimizer_step_in_backward_tutorial.html
