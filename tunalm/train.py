@@ -1,5 +1,9 @@
-import logging
-import os
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 import sys
 import time
 from functools import partial
@@ -19,17 +23,8 @@ from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from tqdm import tqdm
 
-from tunalm.config import LOG_DATEFMT, LOG_FORMAT, LOG_LEVEL
 
-
-logging.basicConfig(
-    format=LOG_FORMAT,
-    datefmt=LOG_DATEFMT,
-    level=os.environ.get("LOGLEVEL", LOG_LEVEL).upper(),
-    stream=sys.stdout,
-)
-
-LOGGER = logging.getLogger(__name__)
+log = utils.get_logger("DEBUG")
 
 
 class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
@@ -690,7 +685,3 @@ def recipe_main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     sys.exit(recipe_main())
-
-# TODO Recipe:
-# - Add support for max iterations
-# - Add evaluation loop every eval_steps iterations
