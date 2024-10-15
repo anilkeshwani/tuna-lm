@@ -1,17 +1,12 @@
-#!/usr/bin/env python
-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
-import os
 import sys
 import time
 from functools import partial
-from pprint import pp
 from typing import Any, Dict, Optional, Tuple, Union
 from warnings import warn
 
@@ -28,17 +23,8 @@ from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from tqdm import tqdm
 
-from tunalm.config import LOG_DATEFMT, LOG_FORMAT, LOG_LEVEL
 
-
-logging.basicConfig(
-    format=LOG_FORMAT,
-    datefmt=LOG_DATEFMT,
-    level=os.environ.get("LOGLEVEL", LOG_LEVEL).upper(),
-    stream=sys.stdout,
-)
-
-LOGGER = logging.getLogger(__file__)
+log = utils.get_logger("DEBUG")
 
 
 class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
