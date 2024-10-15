@@ -1,0 +1,38 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.jinja$'
+      - id: end-of-file-fixer
+        exclude: '\.jinja$'
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+  # lint shell scripts
+  - repo: https://github.com/cisagov/pre-commit-shfmt
+    rev: v0.0.2
+    hooks:
+      - id: shfmt
+        args:
+          - --indent=4
+          - --binary-next-line
+          - --case-indent
+          - --space-redirects
+  # black formatting
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        args:
+          - --config=pyproject.toml
+  # sort imports
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort
+        args:
+          - --settings-path=pyproject.toml
