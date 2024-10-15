@@ -17,15 +17,9 @@ git submodule update --init --recursive &&
 
 # Train
 
-_Draft training signature example_
-
-```bash
-./tunalm/train.py \
-    add_n_dsus=$add_n_dsus \
-    iterations=$iterations \
-    train_dataset=$train_dataset \
-    eval_dataset=$eval_dataset \
-    checkpoint=$checkpoint
+```
+tune run tunalm/train.py \
+    --config conf/1B_full_single_device.yaml
 ```
 
 - Should we also depend on sardalign for import of e.g. DSU PUA offsets?
