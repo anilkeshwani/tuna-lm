@@ -1,4 +1,7 @@
 torch
 torchvision
 torchao
-torchtune
+wandb
+
+# TODO identify how setuptools can install local torchtune dep. when running pip install -e .["dev"] at top level
+# -e ./submodules/torchtune 
