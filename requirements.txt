@@ -1,0 +1,6 @@
+torch
+torchvision
+torchao
+wandb
+
+-e ./submodules/torchtune/
