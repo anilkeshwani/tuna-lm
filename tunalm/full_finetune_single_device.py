@@ -7,6 +7,7 @@
 import sys
 import time
 from functools import partial
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from warnings import warn
 
@@ -198,6 +199,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # log config with parameter override
         self._metric_logger.log_config(cfg)
 
+        # NOTE torchtune.checkpointing.FullModelHFCheckpointer calls save_config at init to write
+        # cfg to cfg.checkpointer.output_dir; it does mkdir but parents=False -> create explicitly
+        Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
+
+        # Loads model from checkpoint *always* given that these are CPT/FT scripts
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)
 
         # ``_setup_model`` handles initialization and loading the state dict. This method
