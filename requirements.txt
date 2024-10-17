@@ -4,7 +4,6 @@ torchao
 wandb
 
 -e ./submodules/torchtune/
--e ./submodules/speech-text-alignment/
 
 # development
 black==24.4.2
