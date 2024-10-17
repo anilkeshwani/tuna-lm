@@ -6,6 +6,7 @@
 git submodule update --init --recursive &&
     conda create -y --name tunalm python=3.10.6 &&
     conda activate tunalm &&
+    pip install pip==24.0 &&
     pip install -r requirements.txt
 ```
 

@@ -1,3 +1,6 @@
 [submodule "submodules/torchtune"]
 	path = submodules/torchtune
 	url = https://github.com/pytorch/torchtune.git
+[submodule "submodules/speech-text-alignment"]
+	path = submodules/speech-text-alignment
+	url = git@github.com:anilkeshwani/speech-text-alignment.git
