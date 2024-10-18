@@ -10,6 +10,8 @@ git submodule update --init --recursive &&
     pip install --no-deps -e ./submodules/speech-text-alignment
 ```
 
+Note: We want to do a shallow install of sardalign so we can import constants (e.g. PUA offsets and tokens) and standard configuration.
+
 ## Download Llama 3.2 Base Model
 
 The torchtune training recipe assumes that you've run the following command, substituting relevant variables from the configuration file values, in order to download the Llama 3.2 pre-trained (base) model:
