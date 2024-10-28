@@ -5,9 +5,9 @@ from pathlib import Path
 from sardalign.utils import dsu2pua
 
 
-def add_tokens_to_tokenizer(tokenizer_model: Path, n_new_dsus: int):
+def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
     """
-    Appends new base64-encoded tokens to a tokenizer.model file.
+    Appends new base64-encoded tokens to a base64-encoded ASCII tokenizer.model file as used by tiktoken.
 
     Arguments:
         - tokenizer_model: Path to the tokenizer.model file
@@ -50,4 +50,4 @@ def add_tokens_to_tokenizer(tokenizer_model: Path, n_new_dsus: int):
 tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-3B/original/tokenizer.model"
 tokenizer_model = Path(tokenizer_model)
 n_new_dsus = 200  # Replace with the number of new DSUs to add
-add_tokens_to_tokenizer(tokenizer_model, n_new_dsus)
+add_dsus_to_tiktoken(tokenizer_model, n_new_dsus)
