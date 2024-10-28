@@ -1,64 +1,53 @@
 import base64
-from pprint import pp
+import warnings
+from pathlib import Path
 
-import tiktoken
-
-
-enc = tiktoken.get_encoding("o200k_base")
-assert enc.decode(enc.encode("hello world")) == "hello world"
-
-# To get the tokeniser corresponding to a specific model in the OpenAI API:
-enc = tiktoken.encoding_for_model("gpt-4o")
-
-print(f"{type(enc) = }")
-# print(f"{len(enc) = }") # TypeError: object of type 'Encoding' has no len()
-
-# print(f"{dir(enc) = }")
-
-# print(f"{enc._mergeable_ranks = }")
+from sardalign.utils import dsu2pua
 
 
-# with open("/Users/anilkeshwani/Desktop/models/llamas/checkpoints/Llama3.2-3B/tokenizer.model", "rb") as f:
-#     base64.b64encode(f.read()).decode("utf-8")
-
-
-sample_base64 = ["IQ==", "Ig==", "Iw==", "JA==", "JQ=="]
-decoded_tokens = [base64.b64decode(token).decode("utf-8") for token in sample_base64]
-print(decoded_tokens)
-
-
-def add_tokens_to_tokenizer(file_path, new_tokens):
+def add_tokens_to_tokenizer(tokenizer_model: Path, n_new_dsus: int):
     """
     Appends new base64-encoded tokens to a tokenizer.model file.
 
-    Parameters:
-    - file_path: Path to the tokenizer.model file
-    - new_tokens: List of string tokens to add
+    Arguments:
+        - tokenizer_model: Path to the tokenizer.model file
+        - n_new_dsus: Number of DSUs to add as tokens. Converted to PUA tokens via dsu2pua.
     """
-    # Read the current file to determine the highest ID
-    with open(file_path, "r") as file:
+    with open(tokenizer_model, "r") as file:
         lines = file.readlines()
 
-    # Find the current highest ID
-    last_line = lines[-1]
-    highest_id = int(last_line.split()[1])
-    next_id = highest_id + 1
+    # Obtain the new DSUs to add
+    new_dsu_tkns = [dsu2pua(i) for i in range(n_new_dsus)]  # NOTE in future can specify start/end idxs for new DSUs
+
+    # Create a dict[bytes, int] dictionary of the current vocabulary - to test for duplicates
+    vocabulary: dict[bytes, int] = {}
+    for line in lines:
+        token, rank = line.split()
+        vocabulary[base64.b64decode(token.encode("utf-8"))] = int(rank)
+
+    # Get next merge rank
+    rank = max(vocabulary.values()) + 1  # in case tokenizer.model is not sorted by merge rank
 
     # Prepare new lines with base64-encoded tokens
     new_lines = []
-    for token in new_tokens:
-        encoded_token = base64.b64encode(token.encode("utf-8")).decode("utf-8")
-        new_lines.append(f"{encoded_token} {next_id}\n")
-        next_id += 1
+    for token in new_dsu_tkns:
+        token_b64_bytes: bytes = base64.b64encode(token.encode("utf-8"))
+        if token_b64_bytes in vocabulary:
+            warnings.warn(f"Token {token} already in vocabulary")
+            continue
+        token_b64_ascii = token_b64_bytes.decode("utf-8")
+        new_lines.append(f"{token_b64_ascii} {rank}\n")
+        rank += 1
 
     # Append the new lines to the file
-    with open(file_path, "a") as file:
+    with open(tokenizer_model, "a") as file:
         file.writelines(new_lines)
 
-    print(f"Added {len(new_tokens)} tokens to {file_path}")
+    print(f"Added {len(new_dsu_tkns)} tokens to {tokenizer_model}")
 
 
 # Usage Example
-file_path = "tokenizer.model"
-new_tokens = ["new_token_1", "new_token_2", "new_token_3"]  # Replace with your new tokens
-add_tokens_to_tokenizer(file_path, new_tokens)
+tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-3B/original/tokenizer.model"
+tokenizer_model = Path(tokenizer_model)
+n_new_dsus = 200  # Replace with the number of new DSUs to add
+add_tokens_to_tokenizer(tokenizer_model, n_new_dsus)
