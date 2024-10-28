@@ -29,25 +29,25 @@ def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
     rank = max(vocabulary.values()) + 1  # in case tokenizer.model is not sorted by merge rank
 
     # Prepare new lines with base64-encoded tokens
-    new_lines = []
-    for token in new_dsu_tkns:
-        token_b64_bytes: bytes = base64.b64encode(token.encode("utf-8"))
-        if token_b64_bytes in vocabulary:
-            warnings.warn(f"Token {token} already in vocabulary")
+    new_tokenizer_lines = []
+    for i, token in enumerate(new_dsu_tkns):
+        token_bytes: bytes = token.encode("utf-8")
+        if token_bytes in vocabulary:
+            warnings.warn(f"Token {token} (idx: {i}) already exists in the vocabulary", UserWarning)
             continue
-        token_b64_ascii = token_b64_bytes.decode("utf-8")
-        new_lines.append(f"{token_b64_ascii} {rank}\n")
+        token_b64_ascii = base64.b64encode(token_bytes).decode("utf-8")
+        new_tokenizer_lines.append(f"{token_b64_ascii} {rank}\n")
         rank += 1
 
     # Append the new lines to the file
     with open(tokenizer_model, "a") as file:
-        file.writelines(new_lines)
+        file.writelines(new_tokenizer_lines)
 
-    print(f"Added {len(new_dsu_tkns)} tokens to {tokenizer_model}")
+    print(f"Added {len(new_tokenizer_lines)} tokens to {tokenizer_model}")
 
 
 # Usage Example
 tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-3B/original/tokenizer.model"
 tokenizer_model = Path(tokenizer_model)
-n_new_dsus = 200  # Replace with the number of new DSUs to add
+n_new_dsus = 400  # Replace with the number of new DSUs to add
 add_dsus_to_tiktoken(tokenizer_model, n_new_dsus)
