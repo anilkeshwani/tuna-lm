@@ -705,16 +705,6 @@ def recipe_main(cfg: DictConfig) -> None:
     config.log_config(recipe_name="FullFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = FullFinetuneRecipeSingleDevice(cfg=cfg)
     recipe.setup(cfg=cfg)
-
-    # Testing tiktoken tokenizer extension
-    print(f"{recipe._tokenizer.tt_model.base_vocab_size = }")
-    print(f"{recipe._tokenizer.tt_model.vocab_size = }")
-    tok = recipe._tokenizer
-    tt = tok.tt_model
-
-    breakpoint()
-    # End testing tiktoken tokenizer extension
-
     recipe.train()
     recipe.cleanup()
 
