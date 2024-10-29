@@ -1,8 +1,13 @@
 import base64
-import warnings
+import logging
+from math import log
 from pathlib import Path
 
 from sardalign.utils import dsu2pua
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+logger = logging.getLogger(__name__)
 
 
 def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
@@ -33,7 +38,7 @@ def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
     for i, token in enumerate(new_dsu_tkns):
         token_bytes: bytes = token.encode("utf-8")
         if token_bytes in vocabulary:
-            warnings.warn(f"Token {token} (idx: {i}) already exists in the vocabulary", UserWarning)
+            logger.warning(f"Token {token} (idx: {i}) already exists in the vocabulary")
             continue
         token_b64_ascii = base64.b64encode(token_bytes).decode("utf-8")
         new_tokenizer_lines.append(f"{token_b64_ascii} {rank}\n")
@@ -47,7 +52,7 @@ def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
 
 
 # Usage Example
-tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-3B/original/tokenizer.model"
+tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-1B/original/tokenizer.model"
 tokenizer_model = Path(tokenizer_model)
-n_new_dsus = 400  # Replace with the number of new DSUs to add
+n_new_dsus = 5000  # Replace with the number of new DSUs to add
 add_dsus_to_tiktoken(tokenizer_model, n_new_dsus)

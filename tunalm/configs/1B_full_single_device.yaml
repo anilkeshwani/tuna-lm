@@ -10,10 +10,10 @@ model:
 
 # Tokenizer
 tokenizer:
-  _component_: torchtune.models.llama3.llama3_tokenizer
+  _component_: torchtune.models.llama3.Llama3Tokenizer
   path: ${base_models_dir}/${model_name}/original/tokenizer.model
   max_seq_len: null # set to 128000000 when packing, the max seq. length per `llama model describe -m Llama3.2-1B`
-  # special_tokens: null
+  # special_tokens: null # set dynamically in recipe script based on extended vocabulary size
   # prompt_template: null
 
 # Dataset

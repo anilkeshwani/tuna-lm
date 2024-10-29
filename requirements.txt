@@ -2,10 +2,10 @@ torch
 torchvision
 torchao
 wandb
-
+tiktoken==0.8.0
 -e ./submodules/torchtune/
 
-# development
+# Development
 black==24.4.2
 isort==5.13.2
 pipreqs==0.5.0

@@ -4,27 +4,33 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import hashlib
+import os
 import sys
 import time
 from functools import partial
 from pathlib import Path
+from pprint import pformat, pp  # noqa: F401; used in debugging
 from typing import Any, Dict, Optional, Tuple, Union
 from warnings import warn
 
 import torch
 from omegaconf import DictConfig, ListConfig
-from torch import nn
+from tiktoken.load import load_tiktoken_bpe
+from torch import exp, nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, modules, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import padded_collate_packed
 from torchtune.datasets import ConcatDataset
+from torchtune.models.llama3._tokenizer import LLAMA3_SPECIAL_TOKENS, NUM_RESERVED_SPECIAL_TOKENS, SPECIAL_TOKENS
 from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from tqdm import tqdm
 
 
+TERMINAL_WIDTH = os.get_terminal_size().columns
 log = utils.get_logger("DEBUG")
 
 
@@ -216,8 +222,22 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             compile_model=self._compile,
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
-        self._tokenizer = config.instantiate(cfg.tokenizer)
-        log.info("Tokenizer is initialized from file.")
+        # NOTE OpenAI's tiktoken doesn't provide a hook to prevent loading from cache -> we'll at least check it matches
+        with open(cfg.tokenizer.path, "rb") as f:
+            expected_hash = hashlib.sha256(f.read()).hexdigest()
+        # loads BPE merges from tokenizer.model
+        mergeable_ranks = load_tiktoken_bpe(cfg.tokenizer.path, expected_hash)
+        base_vocab_size = len(mergeable_ranks)
+        assert base_vocab_size == max(mergeable_ranks.values()) + 1
+        DYNAMIC_LLAMA3_SPECIAL_TOKENS = {
+            k: v
+            for k, v in zip(LLAMA3_SPECIAL_TOKENS, range(base_vocab_size, len(LLAMA3_SPECIAL_TOKENS) + base_vocab_size))
+        }
+        self._tokenizer = config.instantiate(cfg.tokenizer, special_tokens=DYNAMIC_LLAMA3_SPECIAL_TOKENS)
+
+        log.info(f"Tokenizer was initialized from tokenizer model file at: {cfg.tokenizer.path}")
+        pretty_special_tokens = pformat(DYNAMIC_LLAMA3_SPECIAL_TOKENS, sort_dicts=False, underscore_numbers=True)
+        log.info(f"Dynamic Llama3 special tokens added to tokenizer: {pretty_special_tokens}")
 
         # _setup_optimizer should take in ckpt_dict only if training is resumed from
         # checkpoint. Transforming the opt state dict is handled by this method
@@ -685,12 +705,23 @@ def recipe_main(cfg: DictConfig) -> None:
     config.log_config(recipe_name="FullFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = FullFinetuneRecipeSingleDevice(cfg=cfg)
     recipe.setup(cfg=cfg)
+
+    # Testing tiktoken tokenizer extension
+    print(f"{recipe._tokenizer.tt_model.base_vocab_size = }")
+    print(f"{recipe._tokenizer.tt_model.vocab_size = }")
+    tok = recipe._tokenizer
+    tt = tok.tt_model
+
+    breakpoint()
+    # End testing tiktoken tokenizer extension
+
     recipe.train()
     recipe.cleanup()
 
 
 if __name__ == "__main__":
     sys.exit(recipe_main())
+
 
 # TODO Recipe:
 # - Add support for max iterations
