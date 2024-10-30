@@ -222,6 +222,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             compile_model=self._compile,
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
+
         # NOTE OpenAI's tiktoken doesn't provide a hook to prevent loading from cache -> we'll at least check it matches
         with open(cfg.tokenizer.path, "rb") as f:
             expected_hash = hashlib.sha256(f.read()).hexdigest()
@@ -705,6 +706,7 @@ def recipe_main(cfg: DictConfig) -> None:
     config.log_config(recipe_name="FullFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = FullFinetuneRecipeSingleDevice(cfg=cfg)
     recipe.setup(cfg=cfg)
+    raise NotImplementedError("Add in the functionality to update the vocab attribute in the config.json")
     recipe.train()
     recipe.cleanup()
 
