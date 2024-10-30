@@ -1,0 +1,136 @@
+########################################################################################################################
+# Model Extension
+########################################################################################################################
+
+# Experiment management
+model_name: _Llama-3.2-1B # NOTE leading underscore is dir with extended tiktoken merges tokenizer
+output_dir: ./full-${model_name}-finetune
+base_models_dir: /mnt/scratch-artemis/anilkeshwani/models/base-torchtune/
+experiments_dir: /mnt/scratch-artemis/anilkeshwani/experiments
+
+seed: 428987
+
+# Constants
+_llama3_2_1b_config:
+  # taken from the Llama 3.2 1B model builder
+  vocab_size: 128256
+  num_layers: 16
+  num_heads: 32
+  num_kv_heads: 8
+  embed_dim: 2048
+  max_seq_len: 131072
+  intermediate_dim: 8192
+  attn_dropout: 0.0
+  norm_eps: 1e-5
+  rope_base: 500_000
+  scale_factor: 32
+  # Added by me
+  base_vocab_size: 128000 # implies 256 special tokens -> what's reserved in torchtune.models.llama3_2._model_builders
+  n_new_tokens: null # set on run based on tokenizer
+
+# Reduced precision
+dtype: fp32 # RuntimeError: "cholesky_cusolver" not implemented for 'BFloat16'
+
+# Model Arguments
+model:
+  _component_: torchtune.models.llama3_2.llama3_2_1b
+
+# Tokenizer
+tokenizer:
+  _component_: torchtune.models.llama3.Llama3Tokenizer
+  path: ${base_models_dir}/${model_name}/original/tokenizer.model
+  max_seq_len: null
+
+# Checkpointing
+checkpointer:
+  _component_: torchtune.training.FullModelHFCheckpointer
+  checkpoint_dir: ${base_models_dir}/${model_name}
+  checkpoint_files: [model.safetensors]
+  recipe_checkpoint: null
+  output_dir: null
+  model_type: LLAMA3_2
+resume_from_checkpoint: False
+
+########################################################################################################################
+# General
+########################################################################################################################
+
+# Dataset
+dataset:
+  _component_: torchtune.datasets.text_completion_dataset
+  source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert_interleaved
+  column: text
+  split: train
+  add_eos: True
+  packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
+
+shuffle: True # TODO why is shuffle top-level; not under dataset?
+
+# Optimization
+epochs: 5
+batch_size: 4
+gradient_accumulation_steps: 1
+max_steps_per_epoch: null
+optimizer:
+  _component_: torch.optim.AdamW
+  lr: 2e-5
+  fused: True
+
+# Learning rate scheduler
+lr_scheduler:
+  _component_: torchtune.modules.lr_schedulers.get_cosine_schedule_with_warmup
+  num_warmup_steps: 0 # The number of steps for the warmup phase.
+  num_cycles: 0.5 # The number of waves in the cosine schedule. Defaults to 0.5. (decrease from the max value to 0 following a half-cosine).
+  last_epoch: -1 # The index of the last epoch when resuming training. Defaults to -1. Set to self.global_step - 1 in recipe.
+  # optimizer: # set dynamically in recipe
+  # num_training_steps: # set to total_epochs * _steps_per_epoch (:= len(self._dataloader) // self._gradient_accumulation_steps)
+
+# Loss
+loss:
+  _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
+
+# Performance optimizations
+optimizer_in_bwd: False # https://pytorch.org/tutorials/intermediate/optimizer_step_in_backward_tutorial.html
+compile: False # set it to True for better memory and performance
+
+# Training environment
+device: cuda
+
+# Memory management
+enable_activation_checkpointing: False
+
+# Logging
+metric_logger:
+  _component_: torchtune.training.metric_logging.WandBLogger
+  log_dir: ${output_dir}
+  project: speech-integration
+  entity: null # automatically set to username based on API key
+  group: null
+
+log_every_n_steps: 1
+log_peak_memory_stats: False
+
+# Profiling
+profiler:
+  _component_: torchtune.training.setup_torch_profiler
+  enabled: False
+
+  #Output directory of trace artifacts
+  output_dir: ${output_dir}/profiling_outputs
+
+  #`torch.profiler.ProfilerActivity` types to trace
+  cpu: True
+  cuda: True
+
+  #trace options passed to `torch.profiler.profile`
+  profile_memory: True
+  with_stack: False
+  record_shapes: True
+  with_flops: True
+
+  # `torch.profiler.schedule` options:
+  # wait_steps -> wait, warmup_steps -> warmup, active_steps -> active, num_cycles -> repeat
+  wait_steps: 1
+  warmup_steps: 2
+  active_steps: 1
+  num_cycles: 1
