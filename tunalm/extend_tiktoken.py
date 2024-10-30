@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 from math import log
 from pathlib import Path
 
@@ -51,8 +52,9 @@ def add_dsus_to_tiktoken(tokenizer_model: Path, n_new_dsus: int):
     print(f"Added {len(new_tokenizer_lines)} tokens to {tokenizer_model}")
 
 
-# Usage Example
-tokenizer_model = "/mnt/scratch-artemis/anilkeshwani/models/base-torchtune/Llama-3.2-1B/original/tokenizer.model"
-tokenizer_model = Path(tokenizer_model)
-n_new_dsus = 5000  # Replace with the number of new DSUs to add
-add_dsus_to_tiktoken(tokenizer_model, n_new_dsus)
+if __name__ == "__main__":
+    # Usage Example
+    PRETRAINED_MODELS_DIR = Path(os.environ.get("HAFH", "/mnt/scratch-artemis/anilkeshwani/")) / "models/"
+    tokenizer_model = PRETRAINED_MODELS_DIR / "base-torchtune/_Llama-3.2-1B/original/tokenizer.model"
+    n_new_dsus = 5000  # Replace with the number of new DSUs to add
+    add_dsus_to_tiktoken(tokenizer_model, n_new_dsus)
