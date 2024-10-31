@@ -6,8 +6,10 @@
 
 import hashlib
 import os
+import pdb
 import sys
 import time
+import traceback
 from functools import partial
 from pathlib import Path
 from pprint import pformat, pp  # noqa: F401; used in debugging
@@ -30,6 +32,17 @@ from torchtune.training import DummyProfiler, PROFILER_KEY
 from tqdm import tqdm
 
 
+def info_excepthook(type, value, tb):
+    if hasattr(sys, "ps1") or not sys.stderr.isatty():
+        # interactive mode or we don't have a tty-like device: call the default hook
+        sys.__excepthook__(type, value, tb)
+    else:
+        # NOT in interactive mode: print the exception then start the debugger in post-mortem mode
+        traceback.print_exception(type, value, tb)
+        pdb.post_mortem(tb)
+
+
+sys.excepthook = info_excepthook
 TERMINAL_WIDTH = os.get_terminal_size().columns
 log = utils.get_logger("DEBUG")
 
@@ -216,6 +229,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # should be called before ``_setup_optimizer`` since transforming the optimizer
         # state dict requires the model
         self._compile = cfg.compile
+
+        # resolve extended model vocab size unless directly set - sum of base, special, and dsu tokens
+        if cfg.model.vocab_size is None:
+            cfg.model.vocab_size = cfg._model.base_vocab_size + cfg._model.n_special_tokens + cfg._model.n_dsus
         self._model = self._setup_model(
             cfg_model=cfg.model,
             enable_activation_checkpointing=cfg.enable_activation_checkpointing,

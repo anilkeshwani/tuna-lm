@@ -80,8 +80,8 @@ class Llama321BExtender:
 
     def setup(self, cfg: DictConfig) -> None:
         ############################################################################################
-        # Tokenizer: We'll use number of added tokens and postions of the special
-        # tokens to inform where - at which index - we add the new embedding vectors
+        # Tokenizer
+        # Num new tokens + special token postions determine index of new embedding vectors
         ############################################################################################
 
         # NOTE OpenAI's tiktoken doesn't provide a hook to prevent loading from cache -> we'll at least check it matches

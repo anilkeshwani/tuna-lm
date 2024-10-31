@@ -28,8 +28,8 @@ _llama3_2_1b_config:
   base_vocab_size: 128000 # implies 256 special tokens -> what's reserved in torchtune.models.llama3_2._model_builders
   n_new_tokens: null # set on run based on tokenizer
 
-# Reduced precision
-dtype: fp32 # RuntimeError: "cholesky_cusolver" not implemented for 'BFloat16'
+# Precision -> native precision because "cholesky_cusolver" not implemented for 'BFloat16' (bf16)
+dtype: fp32
 
 # Model Arguments
 model:
