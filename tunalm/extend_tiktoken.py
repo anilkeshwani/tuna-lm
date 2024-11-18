@@ -1,7 +1,6 @@
 import base64
 import logging
 import os
-from math import log
 from pathlib import Path
 
 from sardalign.utils import dsu2pua
