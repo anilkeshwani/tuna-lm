@@ -8,11 +8,8 @@ output_dir: ./full-${model_name}-finetune
 base_models_dir: /mnt/scratch-artemis/anilkeshwani/models/base-torchtune/
 experiments_dir: /mnt/scratch-artemis/anilkeshwani/experiments
 
-seed: 428987
-
-# Constants
-_llama3_2_1b_config:
-  # taken from the Llama 3.2 1B model builder
+# Llama 3.2 1B model architecture config
+llama3_2_1b_config:
   vocab_size: 128256
   num_layers: 16
   num_heads: 32
@@ -24,18 +21,25 @@ _llama3_2_1b_config:
   norm_eps: 1e-5
   rope_base: 500_000
   scale_factor: 32
-  # Added by me
-  base_vocab_size: 128000 # implies 256 special tokens -> what's reserved in torchtune.models.llama3_2._model_builders
-  n_new_tokens: null # set on run based on tokenizer
+
+vocab_extension:
+  base_vocab_size: 128000
+  n_special_tokens: 256 # (int) # 256 hard-coded in the torchtune Llama 3 impl.
+  n_new_tokens: 5_000 # no. of DSUs to add to the vocabulary as new tokens/embeddings
+
+extended_tokenizer:
+  path: null # if null defaults to ${checkpointer.output_dir}/original/tokenizer.model
 
 # Precision -> native precision because "cholesky_cusolver" not implemented for 'BFloat16' (bf16)
 dtype: fp32
+
+seed: 428987
 
 # Model Arguments
 model:
   _component_: torchtune.models.llama3_2.llama3_2_1b
 
-# Tokenizer
+# Base Tokenizer (before extension)
 tokenizer:
   _component_: torchtune.models.llama3.Llama3Tokenizer
   path: ${base_models_dir}/${model_name}/original/tokenizer.model
@@ -44,12 +48,13 @@ tokenizer:
 # Checkpointing
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
+  # checkpoint_dir and checkpoint_files should point to the *original* ckpt from tune download
   checkpoint_dir: ${base_models_dir}/${model_name}
   checkpoint_files: [model.safetensors]
   recipe_checkpoint: null
-  output_dir: null
+  output_dir: null # <- use to specify the output directory for the extended model checkpoint; set dynamically if null
   model_type: LLAMA3_2
-resume_from_checkpoint: False
+resume_from_checkpoint: False # False disables loading recipe state
 
 ########################################################################################################################
 # General
