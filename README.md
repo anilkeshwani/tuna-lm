@@ -29,6 +29,14 @@ tune download meta-llama/Llama-3.2-1B \
     --ignore-patterns "original/consolidated.00.pth"
 ```
 
+## Extend Llama 3.2 Base Model
+
+The following command will extend the base model with the specified number of tokens and save the extended model to the specified output directory:
+
+```bash
+./extendllama3.py --n_new_dsus 5000
+```
+
 ## Train
 
 Code is based on a torchtune recipe and config for  for full model, single GPU fine-tuning of the Llama 3.2 1B model.
