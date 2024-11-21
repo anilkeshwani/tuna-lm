@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import hashlib
 import os
 import pdb
 import sys
@@ -13,23 +12,25 @@ import traceback
 from functools import partial
 from pathlib import Path
 from pprint import pformat, pp  # noqa: F401; used in debugging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional
 from warnings import warn
 
 import torch
 from omegaconf import DictConfig, ListConfig
-from tiktoken.load import load_tiktoken_bpe
-from torch import exp, nn
+from torch import nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, modules, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import padded_collate_packed
 from torchtune.datasets import ConcatDataset
-from torchtune.models.llama3._tokenizer import LLAMA3_SPECIAL_TOKENS, NUM_RESERVED_SPECIAL_TOKENS, SPECIAL_TOKENS
 from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from tqdm import tqdm
+
+
+sys.path.append(str(Path(__file__).parent.resolve()))
+from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
 
 
 def info_excepthook(type, value, tb):
@@ -44,7 +45,7 @@ def info_excepthook(type, value, tb):
 
 sys.excepthook = info_excepthook
 TERMINAL_WIDTH = os.get_terminal_size().columns
-log = utils.get_logger("DEBUG")
+LOGGER = utils.get_logger("DEBUG")
 
 
 class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
@@ -153,7 +154,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.global_step = 0
         self._clip_grad_norm = cfg.get("clip_grad_norm", None)
 
-    def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
+    def load_checkpoint(self, cfg_checkpointer: DictConfig) -> dict[str, Any]:
         """
         Extract the checkpoint state from file and validate. If resume_from_checkpoint
         is True, this also includes the recipe state.
@@ -168,7 +169,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             self._update_recipe_state(checkpoint_dict)
         return checkpoint_dict
 
-    def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
+    def _update_recipe_state(self, ckpt_dict: dict[str, Any]) -> None:
         """
         Updates the recipe state from checkpoint.
         """
@@ -208,6 +209,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 "Are you sure you passed in the right recipe checkpoint?"
             ) from e
 
+    @staticmethod
+    def resolve_vocab_size(cfg: DictConfig) -> DictConfig:
+        # resolve extended model vocab size unless directly set - sum of base, special, and dsu tokens
+        assert cfg.model.vocab_size is None, "Do not set vocab_size explicitly. It is inferred dynamically given n_dsus"
+        cfg.model.vocab_size = cfg.model.base_vocab_size + cfg.model.n_special_tokens + cfg.model.n_dsus
+        return cfg
+
     def setup(self, cfg: DictConfig) -> None:
         """
         Sets up the recipe state correctly. This includes setting recipe attributes based
@@ -218,11 +226,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # log config with parameter override
         self._metric_logger.log_config(cfg)
 
-        # NOTE torchtune.checkpointing.FullModelHFCheckpointer calls save_config at init to write
-        # cfg to cfg.checkpointer.output_dir; it does mkdir but parents=False -> create explicitly
+        # NOTE FullModelHFCheckpointer mkdir parents=False in __init__ before save_config to cfg.checkpointer.output_dir
         Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
-
-        # Loads model from checkpoint *always* given that these are CPT/FT scripts
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)
 
         # ``_setup_model`` handles initialization and loading the state dict. This method
@@ -230,9 +235,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # state dict requires the model
         self._compile = cfg.compile
 
-        # resolve extended model vocab size unless directly set - sum of base, special, and dsu tokens
-        if cfg.model.vocab_size is None:
-            cfg.model.vocab_size = cfg._model.base_vocab_size + cfg._model.n_special_tokens + cfg._model.n_dsus
+        cfg = self.resolve_vocab_size(cfg)
         self._model = self._setup_model(
             cfg_model=cfg.model,
             enable_activation_checkpointing=cfg.enable_activation_checkpointing,
@@ -240,22 +243,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
 
-        # NOTE OpenAI's tiktoken doesn't provide a hook to prevent loading from cache -> we'll at least check it matches
-        with open(cfg.tokenizer.path, "rb") as f:
-            expected_hash = hashlib.sha256(f.read()).hexdigest()
-        # loads BPE merges from tokenizer.model
-        mergeable_ranks = load_tiktoken_bpe(cfg.tokenizer.path, expected_hash)
-        base_vocab_size = len(mergeable_ranks)
-        assert base_vocab_size == max(mergeable_ranks.values()) + 1
-        DYNAMIC_LLAMA3_SPECIAL_TOKENS = {
-            k: v
-            for k, v in zip(LLAMA3_SPECIAL_TOKENS, range(base_vocab_size, len(LLAMA3_SPECIAL_TOKENS) + base_vocab_size))
-        }
-        self._tokenizer = config.instantiate(cfg.tokenizer, special_tokens=DYNAMIC_LLAMA3_SPECIAL_TOKENS)
-
-        log.info(f"Tokenizer was initialized from tokenizer model file at: {cfg.tokenizer.path}")
-        pretty_special_tokens = pformat(DYNAMIC_LLAMA3_SPECIAL_TOKENS, sort_dicts=False, underscore_numbers=True)
-        log.info(f"Dynamic Llama3 special tokens added to tokenizer: {pretty_special_tokens}")
+        setup_llama3_tokenizer(cfg.tokenizer.path)
 
         # _setup_optimizer should take in ckpt_dict only if training is resumed from
         # checkpoint. Transforming the opt state dict is handled by this method
@@ -265,8 +253,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             opt_state_dict=(ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None),
         )
 
-        # initialize loss
-        self._loss_fn = config.instantiate(cfg.loss)
+        self._loss_fn = config.instantiate(cfg.loss)  # initialize loss function
 
         if self._compile:
             training.compile_loss(self._loss_fn)
@@ -275,7 +262,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # set num_output_chunks for model
             self._model.set_num_output_chunks(self._loss_fn.num_output_chunks)
 
-        log.info("Loss is initialized.")
+        LOGGER.info("Loss is initialized.")
 
         # sampler and dataloader depend on the tokenizer and loss_fn and should be
         # setup after both of these are initialized
@@ -313,14 +300,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Used to ignore labels for loss computation
         self.ignore_labels_cache = torch.full((cfg.batch_size, 1), self._loss_fn.ignore_index, device=self._device)
 
-    def _setup_profiler(
-        self, cfg_profiler: Optional[DictConfig] = None
-    ) -> Union[torch.profiler.profile, DummyProfiler]:
+    def _setup_profiler(self, cfg_profiler: DictConfig | None = None) -> torch.profiler.profile | DummyProfiler:
         """
         Parses the `profiler` section of top-level `cfg` and sets up profiler
 
         Args:
-            cfg_profiler (Optional[DictConfig]): ``profiler`` section of the top-level ``cfg`` (the main config passed to
+            cfg_profiler (DictConfig | None): ``profiler`` section of the top-level ``cfg`` (the main config passed to
                 `recipe.main`). Default None.
 
         Returns:
@@ -369,7 +354,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         profiler, profiler_cfg = config.instantiate(cfg_profiler)
 
-        log.info(f" Profiler config after instantiation: {profiler_cfg}")
+        LOGGER.info(f" Profiler config after instantiation: {profiler_cfg}")
 
         self.profiler_profile_memory = profiler_cfg.get("profile_memory", False)
         if profiler_cfg["enabled"]:
@@ -384,7 +369,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         cfg_model: DictConfig,
         enable_activation_checkpointing: bool,
         compile_model: bool,
-        model_state_dict: Dict[str, Any],
+        model_state_dict: dict[str, Any],
     ) -> nn.Module:
         """
         Set up the model including enabling activation checkpointing.
@@ -402,7 +387,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # Validate model was loaded in with the expected dtype.
         training.validate_expected_param_dtype(model.named_parameters(), dtype=self._dtype)
-        log.info(f"Model is initialized with precision {self._dtype}.")
+        LOGGER.info(f"Model is initialized with precision {self._dtype}.")
 
         if self._device.type == "cuda":
             memory_stats = training.get_memory_stats(device=self._device)
@@ -414,7 +399,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self,
         cfg_optimizer: DictConfig,
         optimizer_in_bwd: bool = False,
-        opt_state_dict: Optional[Dict[str, Any]] = None,
+        opt_state_dict: Optional[dict[str, Any]] = None,
     ) -> Optional[Optimizer]:
         """
         Set up the optimizer. This method also handles loading the optimizer state_dict, if specified.
@@ -437,19 +422,19 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         "Failed loading in-backward optimizer checkpoints."
                         "Please make sure run being restored from was using in-backward optimizer."
                     ) from e
-            log.info("In-backward optimizers are set up.")
+            LOGGER.info("In-backward optimizers are set up.")
             return None
         else:
             optimizer = config.instantiate(cfg_optimizer, self._model.parameters())
 
             if opt_state_dict:
                 optimizer.load_state_dict(opt_state_dict)
-            log.info("Optimizer is initialized.")
+            LOGGER.info("Optimizer is initialized.")
             return optimizer
 
     def _setup_lr_scheduler(
         self,
-        cfg_lr_scheduler: Optional[DictConfig],
+        cfg_lr_scheduler: DictConfig | None,
         num_training_steps: int,
         last_epoch: int,
     ) -> Optional[Optimizer]:
@@ -459,7 +444,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         schedulers from both torchtune.modules and torch.optim.
 
         Args:
-            cfg_lr_scheduler (Optional[DictConfig]): The learning rate scheduler configuration.
+            cfg_lr_scheduler (DictConfig | None): The learning rate scheduler configuration.
             num_training_steps (int): The total number of training steps.
             last_epoch (int): The index of the last epoch.
 
@@ -467,7 +452,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             lr_scheduler (Optional[Optimizer]): The learning rate scheduler.
         """
         if cfg_lr_scheduler is None:
-            log.info("No learning rate scheduler configured. Using constant learning rate.")
+            LOGGER.info("No learning rate scheduler configured. Using constant learning rate.")
             return None
 
         if self._optimizer_in_bwd:
@@ -489,7 +474,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Modify the scheduler for optimizer_in_bwd case
             self._optim_ckpt_wrapper.set_lr_scheduler(lr_scheduler)
 
-        log.info("Learning rate scheduler is initialized.")
+        LOGGER.info("Learning rate scheduler is initialized.")
         return lr_scheduler
 
     def _setup_data(
@@ -498,7 +483,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         shuffle: bool,
         batch_size: int,
         collate_fn: str,
-    ) -> Tuple[DistributedSampler, DataLoader]:
+    ) -> tuple[DistributedSampler, DataLoader]:
         """
         All data related setup happens here. Currently this recipe only supports the
         DistributedSamplers with Map-style Datasets which fit into memory. Other samplers,
@@ -531,17 +516,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # dropping last avoids shape issues with compile + flex attention
             drop_last=True,
             collate_fn=(
-                partial(
-                    collate_fn,
-                    padding_idx=self._tokenizer.pad_id,
-                    ignore_idx=self._loss_fn.ignore_index,
-                )
+                partial(collate_fn, padding_idx=self._tokenizer.pad_id, ignore_idx=self._loss_fn.ignore_index)
                 if not packed
                 else padded_collate_packed
             ),
         )
 
-        log.info("Dataset and Sampler are initialized.")
+        LOGGER.info("Dataset and Sampler are initialized.")
 
         return sampler, dataloader
 
@@ -571,7 +552,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             intermediate_checkpoint=(epoch + 1 < self.total_epochs),
         )
 
-    def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def _loss_step(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
         labels = batch.pop("labels")
 
@@ -593,12 +574,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         return loss
 
     def train(self) -> None:
-        """
-        The core training loop. Supports training on subsets of the dataset using the
-        ``max_steps_per_epoch``.
-        """
+        """The core training loop. Supports training on subsets of the dataset using the ``max_steps_per_epoch``."""
         if self._compile:
-            log.info(
+            LOGGER.info(
                 "NOTE: torch.compile is enabled and model is compiled in first forward. Expect a relatively slow first iteration."
             )
         # zero out the gradients before starting training
