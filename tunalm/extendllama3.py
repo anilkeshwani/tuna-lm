@@ -16,6 +16,7 @@ from sardalign.utils import dsu2pua, multivariate_normal_from_weights, seed_ever
 from tiktoken.load import load_tiktoken_bpe
 from torch import nn
 from torchtune import utils
+from torchtune.data import PromptTemplate
 from torchtune.models.llama3 import Llama3Tokenizer
 from torchtune.models.llama3._tokenizer import LLAMA3_SPECIAL_TOKENS
 from torchtune.models.llama3_2 import llama3_2_1b
@@ -126,7 +127,11 @@ def setup_model(model_state_dict: dict[str, Any], device: str = "cpu") -> nn.Mod
     return model
 
 
-def setup_llama3_tokenizer(tokenizer_model: Path) -> tuple[Llama3Tokenizer, dict[str, int]]:
+def setup_llama3_tokenizer(
+    tokenizer_model: Path,
+    max_seq_len: int | None = None,
+    prompt_template: PromptTemplate | None = None,
+) -> tuple[Llama3Tokenizer, dict[str, int]]:
     with open(tokenizer_model, "rb") as f:
         expected_hash = hashlib.sha256(f.read()).hexdigest()
     mergeable_ranks = load_tiktoken_bpe(str(tokenizer_model), expected_hash)  # load BPE merges from tokenizer.model
@@ -136,8 +141,12 @@ def setup_llama3_tokenizer(tokenizer_model: Path) -> tuple[Llama3Tokenizer, dict
         k: v
         for k, v in zip(LLAMA3_SPECIAL_TOKENS, range(base_vocab_size, base_vocab_size + len(LLAMA3_SPECIAL_TOKENS)))
     }
-    # NOTE Llama3Tokenizer: max_seq_len and prompt_template default to None
-    tokenizer = Llama3Tokenizer(path=str(tokenizer_model), special_tokens=special_tokens_dynamic)
+    tokenizer = Llama3Tokenizer(
+        path=str(tokenizer_model),
+        special_tokens=special_tokens_dynamic,
+        max_seq_len=max_seq_len,
+        prompt_template=prompt_template,
+    )
     print(f"Loaded Llama 3 tiktoken tokenizer from: {tokenizer_model}")
     pretty_special_tokens = pformat(special_tokens_dynamic, sort_dicts=False, underscore_numbers=True)
     print(f"Llama3 special tokens (dynamic) added to tokenizer: {pretty_special_tokens}")
