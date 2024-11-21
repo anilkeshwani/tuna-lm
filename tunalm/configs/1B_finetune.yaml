@@ -32,7 +32,7 @@ tokenizer:
   path: ${base_models_dir}/_Llama-3.2-1B/original/tokenizer.model
   max_seq_len: null # set to 128000000 when packing? (max seq. length per `llama model describe -m Llama3.2-1B`)
   # special_tokens: null # set dynamically in recipe script based on extended vocabulary size
-  # prompt_template: null
+  prompt_template: null
 
 # Dataset
 dataset:
@@ -110,7 +110,7 @@ metric_logger:
 log_every_n_steps: 1
 log_peak_memory_stats: False
 
-# Profiling
+# Profiler
 profiler:
   _component_: torchtune.training.setup_torch_profiler
   enabled: False
