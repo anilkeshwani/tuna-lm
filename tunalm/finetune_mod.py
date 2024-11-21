@@ -516,7 +516,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # dropping last avoids shape issues with compile + flex attention
             drop_last=True,
             collate_fn=(
-                partial(collate_fn, padding_idx=self._tokenizer.pad_id, ignore_idx=self._loss_fn.ignore_index)
+                partial(
+                    collate_fn,
+                    padding_idx=self._tokenizer.pad_id,
+                    ignore_idx=self._loss_fn.ignore_index,
+                )
                 if not packed
                 else padded_collate_packed
             ),
