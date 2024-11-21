@@ -20,12 +20,11 @@ model:
   intermediate_dim: 8192 # (Optional[int])
   norm_eps: 1e-5 # (float)
   scale_factor: 32 # (int)
-
-# shadows cfg.model and used to populate cfg.model.vocab_size
-_model:
   base_vocab_size: 128000 # base vocabulary size Llama 3: 100k (tiktoken) + 28k (targeting multilingual support)
   n_special_tokens: 256 # (int) # hard-coded in the torchtune Llama 3 impl.
-  n_dsus: 5000 # (int) # hard-coded for a particular experiment
+  n_dsus: ${n_dsus} # (int)
+
+n_dsus: ??? # (int) # force user to specify number of DSUs used as validation; top level for convenience
 
 # Tokenizer
 tokenizer:
