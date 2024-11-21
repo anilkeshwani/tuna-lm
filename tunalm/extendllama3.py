@@ -126,7 +126,7 @@ def setup_model(model_state_dict: dict[str, Any], device: str = "cpu") -> nn.Mod
     return model
 
 
-def setup_tokenizer(tokenizer_model: Path) -> tuple[Llama3Tokenizer, dict[str, int]]:
+def setup_llama3_tokenizer(tokenizer_model: Path) -> tuple[Llama3Tokenizer, dict[str, int]]:
     with open(tokenizer_model, "rb") as f:
         expected_hash = hashlib.sha256(f.read()).hexdigest()
     mergeable_ranks = load_tiktoken_bpe(str(tokenizer_model), expected_hash)  # load BPE merges from tokenizer.model
@@ -141,6 +141,7 @@ def setup_tokenizer(tokenizer_model: Path) -> tuple[Llama3Tokenizer, dict[str, i
     print(f"Loaded Llama 3 tiktoken tokenizer from: {tokenizer_model}")
     pretty_special_tokens = pformat(special_tokens_dynamic, sort_dicts=False, underscore_numbers=True)
     print(f"Llama3 special tokens (dynamic) added to tokenizer: {pretty_special_tokens}")
+    print(f"Tokenizer base vocabulary size (BPE merges file): {base_vocab_size}")
     print(f"Llama 3 tiktoken tokenizer vocabulary size: {tokenizer.vocab_size}")
     return tokenizer, special_tokens_dynamic
 
@@ -209,7 +210,7 @@ def main(args: Namespace) -> None:
     ckpt_dict: dict[str, Any] = checkpointer.load_checkpoint()
     model = setup_model(model_state_dict=ckpt_dict[torchtune.training.MODEL_KEY])
     print(f"Model loaded successfully: {model}")
-    tokenizer_extended, special_tokens = setup_tokenizer(args.output_dir / LLAMA_3_2_TOKENIZER_RELPATH)
+    tokenizer_extended, special_tokens = setup_llama3_tokenizer(args.output_dir / LLAMA_3_2_TOKENIZER_RELPATH)
     # NOTE FullModelHFCheckpointer writes the input config.json to the output_dir on __init__ -> forced to overwrite
     extend_config(
         args.output_dir / LLAMA_3_2_CONFIG_RELPATH,
