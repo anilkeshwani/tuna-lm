@@ -213,7 +213,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     def resolve_vocab_size(cfg: DictConfig) -> DictConfig:
         # resolve extended model vocab size unless directly set - sum of base, special, and dsu tokens
         assert cfg.model.vocab_size is None, "Do not set vocab_size explicitly. It is inferred dynamically given n_dsus"
-        cfg.model.vocab_size = cfg.model.base_vocab_size + cfg.model.n_special_tokens + cfg.model.n_dsus
+        cfg.model.vocab_size = cfg.base_vocab_size + cfg.n_special_tokens + cfg.n_dsus
         return cfg
 
     def setup(self, cfg: DictConfig) -> None:
@@ -243,7 +243,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
 
-        setup_llama3_tokenizer(cfg.tokenizer.path)
+        self._tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
 
         # _setup_optimizer should take in ckpt_dict only if training is resumed from
         # checkpoint. Transforming the opt state dict is handled by this method
@@ -705,7 +705,6 @@ def recipe_main(cfg: DictConfig) -> None:
     config.log_config(recipe_name="FullFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = FullFinetuneRecipeSingleDevice(cfg=cfg)
     recipe.setup(cfg=cfg)
-    raise NotImplementedError("Add in the functionality to update the vocab attribute in the config.json")
     recipe.train()
     recipe.cleanup()
 

@@ -30,8 +30,8 @@ LOGGER = logging.getLogger(__name__)
 
 # Constants
 HAFH_DIR = Path(os.environ.get("HAFH", "/mnt/scratch-artemis/anilkeshwani/"))
-TORCHTUNE_BASE_MODELS_DIR = HAFH_DIR / "models" / "base-torchtune"
-TORCHTUNE_EXTENDED_MODELS_DIR = HAFH_DIR / "models" / "extended-torchtune"
+TORCHTUNE_BASE_MODELS_DIR = HAFH_DIR / "models" / "base" / "torchtune"
+TORCHTUNE_EXTENDED_MODELS_DIR = HAFH_DIR / "models" / "extended" / "torchtune"
 LLAMA_3_2_1B_BASE_DIR = TORCHTUNE_BASE_MODELS_DIR / "Llama-3.2-1B"
 
 # Tokenizer (tiktoken) and model (HF safetensors) path relative to Llama 3.2 directory (from tune download)

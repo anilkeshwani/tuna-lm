@@ -41,12 +41,8 @@ The following command will extend the base model with the specified number of to
 
 Code is based on a torchtune recipe and config for  for full model, single GPU fine-tuning of the Llama 3.2 1B model.
 
-- **full_finetune_single_device.py**: torchtune "recipe"
-- **configs/1B_full_single_device.yaml**: YAML configuration (Hydra-style)
-
 ```bash
-tune run tunalm/full_finetune_single_device.py \
-    --config tunalm/configs/1B_full_single_device.yaml
+tune run tunalm/finetune.py --config tunalm/configs/1B_finetune.yaml
 ```
 
 Run the above from the project root _without_ a leading `./` which induces torchtune to raise an `ImportError: Relative module names not supported`.
