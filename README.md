@@ -59,4 +59,5 @@ tune run full_finetune_single_device \
     checkpointer.checkpoint_dir="${YOUR_CHECKPOINT_DIR}"
 ```
 
-> [!NOTE] This config works only for training on single device.
+> [!NOTE]  
+> This config works only for training on single device.
