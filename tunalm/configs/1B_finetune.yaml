@@ -95,10 +95,13 @@ checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: ${extended_models_dir}/${model_name}
   checkpoint_files: [hf_model_0001_0.pt]
-  recipe_checkpoint: null
-  output_dir: null
   model_type: LLAMA3_2
-resume_from_checkpoint: False
+  output_dir: null # if null, set to ${experiments_root_dir}/${model_name}/${experiment_name}/${checkpoints}
+  adapter_checkpoint: null
+  recipe_checkpoint: null
+  resume_from_checkpoint: False
+  safe_serialization: False
+
 save_steps: 1 # save every step for debugging
 
 # Logging

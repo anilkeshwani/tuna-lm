@@ -138,7 +138,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._log_peak_memory_stats = cfg.get("log_peak_memory_stats", False)
 
         # Training cfg
-        self._resume_from_checkpoint = cfg.resume_from_checkpoint
+        self._resume_from_checkpoint = cfg.checkpointer.resume_from_checkpoint
         self._gradient_accumulation_steps = cfg.gradient_accumulation_steps
         self._optimizer_in_bwd = cfg.optimizer_in_bwd
 
@@ -158,8 +158,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.max_steps_per_epoch = cfg.max_steps_per_epoch
         self.global_step = 0
         self._clip_grad_norm = cfg.get("clip_grad_norm", None)
-        self.save_steps = cfg.get("save_steps", None)
-        assert self.save_steps is not None and self.save_steps >= 0, "save_steps must be a non-negative integer"
+        self.save_steps = cfg.save_steps
 
     def setup_checkpointer(self, cfg: DictConfig) -> DictConfig:
         assert self.experiment_name is not None, "Experiment name must be defined before setting up checkpointer"
@@ -170,7 +169,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # NOTE FullModelHFCheckpointer mkdir parents=False in __init__ before save_config to cfg.checkpointer.output_dir
         Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
         # create and save the checkpointer as an instance attribute
-        self._checkpointer = config.instantiate(cfg.checkpointer, resume_from_checkpoint=self._resume_from_checkpoint)
+        self._checkpointer = config.instantiate(cfg.checkpointer)
         return cfg
 
     def load_checkpoint(self) -> dict[str, Any]:
