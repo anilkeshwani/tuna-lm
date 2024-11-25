@@ -53,8 +53,8 @@ shuffle: True # TODO why is shuffle top-level; not under dataset?
 
 # Optimization
 epochs: 5
-batch_size: 4 # was 144 via bs=12 and grad. accum. 12 for TinyLlama
-gradient_accumulation_steps: 1
+batch_size: 4 # effective batch size was 144 via bs=12 and grad. accum. 12 for TinyLlama
+gradient_accumulation_steps: 16
 max_steps_per_epoch: null
 optimizer:
   _component_: torch.optim.AdamW
@@ -98,6 +98,7 @@ checkpointer:
   output_dir: ${experiments_dir}/${model_name}/checkpoints
   model_type: LLAMA3_2
 resume_from_checkpoint: False
+save_steps: 1000
 
 # Logging
 metric_logger:

@@ -47,6 +47,10 @@ sys.excepthook = info_excepthook
 TERMINAL_WIDTH = os.get_terminal_size().columns
 LOGGER = utils.get_logger("DEBUG")
 
+# Constants
+# NOTE torchtune.training exports STEPS_KEY = "steps_run" # number of steps completed thus far - for PPO
+GLOBAL_STEP_KEY: str = "global_step"
+
 
 class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     """
@@ -153,6 +157,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.max_steps_per_epoch = cfg.max_steps_per_epoch
         self.global_step = 0
         self._clip_grad_norm = cfg.get("clip_grad_norm", None)
+        self.save_steps = cfg.get("save_steps", None)
+        assert self.save_steps is not None and self.save_steps >= 0, "save_steps must be a non-negative integer"
 
     def load_checkpoint(self, cfg_checkpointer: DictConfig) -> dict[str, Any]:
         """
@@ -276,7 +282,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # by the dataloader, the max_steps_per_epoch param set by the user and the
         # gradient_accumulation_steps param. This value is used for logging and tracking
         # training state. The computation should happen after the dataloader has been setup
-        self._steps_per_epoch = len(self._dataloader) // self._gradient_accumulation_steps
+        self._steps_per_epoch = max(1, len(self._dataloader) // self._gradient_accumulation_steps)
+        self._steps_per_epoch_n_dig = len(str(self._steps_per_epoch))
         if self.max_steps_per_epoch is not None and self.max_steps_per_epoch < self._steps_per_epoch:
             self._steps_per_epoch = self.max_steps_per_epoch
         self.global_step = self.epochs_run * self._steps_per_epoch
@@ -528,6 +535,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     training.EPOCHS_KEY: self.epochs_run,
                     training.TOTAL_EPOCHS_KEY: self.total_epochs,
                     training.MAX_STEPS_KEY: self.max_steps_per_epoch,
+                    GLOBAL_STEP_KEY: self.global_step,
                 }
             )
             if not self._optimizer_in_bwd:
@@ -585,8 +593,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Update the sampler to ensure data is correctly shuffled across epochs in case shuffle is True
             self._sampler.set_epoch(curr_epoch)
 
-            pbar = tqdm(total=self._steps_per_epoch)
-            for idx, batch in enumerate(self._dataloader):
+            for idx, batch in tqdm(enumerate(self._dataloader), total=self._steps_per_epoch):
                 if (
                     self.max_steps_per_epoch is not None
                     and (idx // self._gradient_accumulation_steps) == self.max_steps_per_epoch
@@ -626,16 +633,19 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     self.global_step += 1
 
                     loss_to_log = running_loss.item()
-                    pbar.update(1)
-                    pbar.set_description(f"{curr_epoch + 1}|{self.global_step}|Loss: {loss_to_log}")
+                    LOGGER.info(
+                        f"{curr_epoch + 1:03d} | "
+                        f"{self.global_step:0{self._steps_per_epoch_n_dig}d} | "
+                        f"Loss: {loss_to_log:.4f}"
+                    )
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
                         time_per_step = time.perf_counter() - t0
                         log_dict = {
                             "loss": loss_to_log,
-                            # NOTE: for optim in backward, this assumes all optimizers have the same LR. This is currently
-                            # true since we don't expose the ability to configure this yet.
+                            # NOTE: for optim in backward, this assumes all optimizers have the same LR. This is
+                            # currently true since we don't expose the ability to configure this yet.
                             "lr": (
                                 self._optim_ckpt_wrapper.get_optim_key("lr")
                                 if self._optimizer_in_bwd
@@ -647,10 +657,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                             log_dict.update(training.get_memory_stats(device=self._device))
                         if self._clip_grad_norm is not None:
                             log_dict.update({"grad_norm": grad_norm})
-                        self._metric_logger.log_dict(
-                            log_dict,
-                            step=self.global_step,
-                        )
+                        self._metric_logger.log_dict(log_dict, step=self.global_step)
+
+                    if self.global_step != 0 and self.global_step % self.save_steps == 0:
+                        self.save_checkpoint(epoch=curr_epoch)
+                        LOGGER.info(f"Checkpoint saved at step {self.global_step:0{self._steps_per_epoch_n_dig}d}")
 
                     # Reset running stats for the next step
                     running_loss = 0
@@ -671,7 +682,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 self._profiler.step()
 
             self.epochs_run += 1
-            self.save_checkpoint(epoch=curr_epoch)
 
         self._profiler.stop()
 
