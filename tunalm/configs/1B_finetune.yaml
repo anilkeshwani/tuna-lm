@@ -53,7 +53,7 @@ shuffle: True # TODO why is shuffle top-level; not under dataset?
 
 # Optimization
 epochs: 5
-batch_size: 128 # was 144 via bs=12 and grad. accum. 12 for TinyLlama
+batch_size: 4 # was 144 via bs=12 and grad. accum. 12 for TinyLlama
 gradient_accumulation_steps: 1
 max_steps_per_epoch: null
 optimizer:
