@@ -159,10 +159,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         Extract the checkpoint state from file and validate. If resume_from_checkpoint
         is True, this also includes the recipe state.
         """
-        self._checkpointer = config.instantiate(
-            cfg_checkpointer,
-            resume_from_checkpoint=self._resume_from_checkpoint,
-        )
+        self._checkpointer = config.instantiate(cfg_checkpointer, resume_from_checkpoint=self._resume_from_checkpoint)
         checkpoint_dict = self._checkpointer.load_checkpoint()
 
         if self._resume_from_checkpoint:
@@ -170,9 +167,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         return checkpoint_dict
 
     def _update_recipe_state(self, ckpt_dict: dict[str, Any]) -> None:
-        """
-        Updates the recipe state from checkpoint.
-        """
+        """Updates the recipe state from checkpoint."""
         try:
             self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
 
@@ -502,25 +497,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise RuntimeError("left_pad_sequence collator is only for inference.")
         collate_fn = _get_component_from_path(collate_fn)
 
-        sampler = DistributedSampler(
-            ds,
-            num_replicas=1,
-            rank=0,
-            shuffle=shuffle,
-            seed=0,
-        )
+        sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=shuffle, seed=0)
         dataloader = DataLoader(
             dataset=ds,
             batch_size=batch_size,
             sampler=sampler,
-            # dropping last avoids shape issues with compile + flex attention
-            drop_last=True,
+            drop_last=True,  # dropping last avoids shape issues with compile + flex attention
             collate_fn=(
-                partial(
-                    collate_fn,
-                    padding_idx=self._tokenizer.pad_id,
-                    ignore_idx=self._loss_fn.ignore_index,
-                )
+                partial(collate_fn, padding_idx=self._tokenizer.pad_id, ignore_idx=self._loss_fn.ignore_index)
                 if not packed
                 else padded_collate_packed
             ),
@@ -572,8 +556,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # Compute loss
         loss = self._loss_fn(logits, labels)
-        # free logits otherwise it peaks backward memory
-        del logits
+
+        del logits  # free logits otherwise it peaks backward memory
 
         return loss
 
@@ -581,7 +565,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         """The core training loop. Supports training on subsets of the dataset using the ``max_steps_per_epoch``."""
         if self._compile:
             LOGGER.info(
-                "NOTE: torch.compile is enabled and model is compiled in first forward. Expect a relatively slow first iteration."
+                "NOTE: torch.compile is enabled and model is compiled in first forward. "
+                "Expect a relatively slow first iteration."
             )
         # zero out the gradients before starting training
         if not self._optimizer_in_bwd:
@@ -593,10 +578,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         num_tokens = 0
 
         self._profiler.start()
-        # self.epochs_run should be non-zero when we're resuming from a checkpoint
+        if self._resume_from_checkpoint:
+            assert self.epochs_run > 0, "Epochs run self.epochs_run should be non-zero when resuming from a checkpoint"
+
         for curr_epoch in range(self.epochs_run, self.total_epochs):
-            # Update the sampler to ensure data is correctly shuffled across epochs
-            # in case shuffle is True
+            # Update the sampler to ensure data is correctly shuffled across epochs in case shuffle is True
             self._sampler.set_epoch(curr_epoch)
 
             pbar = tqdm(total=self._steps_per_epoch)
