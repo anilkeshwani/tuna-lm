@@ -26,6 +26,7 @@ from torchtune.data import padded_collate_packed
 from torchtune.datasets import ConcatDataset
 from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
+from torchtune.training.metric_logging import WandBLogger
 from tqdm import tqdm
 
 
@@ -132,7 +133,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise ValueError("full fp16 training is not supported with this recipe. Please use bf16 or fp32 instead.")
 
         # logging attributes
-        self._output_dir = cfg.output_dir
+        self._output_dir = cfg.output_dir  # TODO where is this used? does the logger *actually* use it?
         self._log_every_n_steps = cfg.get("log_every_n_steps", 1)
         self._log_peak_memory_stats = cfg.get("log_peak_memory_stats", False)
 
@@ -160,14 +161,20 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.save_steps = cfg.get("save_steps", None)
         assert self.save_steps is not None and self.save_steps >= 0, "save_steps must be a non-negative integer"
 
-    def load_checkpoint(self, cfg_checkpointer: DictConfig) -> dict[str, Any]:
-        """
-        Extract the checkpoint state from file and validate. If resume_from_checkpoint
-        is True, this also includes the recipe state.
-        """
-        self._checkpointer = config.instantiate(cfg_checkpointer, resume_from_checkpoint=self._resume_from_checkpoint)
-        checkpoint_dict = self._checkpointer.load_checkpoint()
+    def setup_checkpointer(self, cfg: DictConfig) -> DictConfig:
+        assert self.experiment_name is not None, "Experiment name must be defined before setting up checkpointer"
+        if cfg.checkpointer.output_dir is None:
+            _exp_name = self.experiment_name + (f"-id_{self._wandb_run_id}" if self._wandb_run_id else "")
+            _ckptr_out_dir_parts = cfg.experiments_root_dir, cfg.model_name, _exp_name, "checkpoints"
+            cfg.checkpointer.output_dir = str(Path(*_ckptr_out_dir_parts))
+        # NOTE FullModelHFCheckpointer mkdir parents=False in __init__ before save_config to cfg.checkpointer.output_dir
+        Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
+        # create and save the checkpointer as an instance attribute
+        self._checkpointer = config.instantiate(cfg.checkpointer, resume_from_checkpoint=self._resume_from_checkpoint)
+        return cfg
 
+    def load_checkpoint(self) -> dict[str, Any]:
+        checkpoint_dict = self._checkpointer.load_checkpoint()
         if self._resume_from_checkpoint:
             self._update_recipe_state(checkpoint_dict)
         return checkpoint_dict
@@ -176,6 +183,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         """Updates the recipe state from checkpoint."""
         try:
             self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
+            self.global_step = ckpt_dict[GLOBAL_STEP_KEY]
 
             # on mismatch, warn the user and prevent the override
             if self.seed != ckpt_dict[training.SEED_KEY]:
@@ -218,25 +226,30 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         return cfg
 
     def setup(self, cfg: DictConfig) -> None:
-        """
-        Sets up the recipe state correctly. This includes setting recipe attributes based
-        on the ``resume_from_checkpoint`` flag.
-        """
+        """Sets up recipe state including recipe attributes based on ``resume_from_checkpoint`` flag"""
         self._metric_logger = config.instantiate(cfg.metric_logger)
 
-        # log config with parameter override
-        self._metric_logger.log_config(cfg)
+        if cfg.experiment_name is None:
+            if not isinstance(self._metric_logger, WandBLogger):
+                raise ValueError("experiment_name must be defined in config if not using WandBLogger (with run name)")
+            self.experiment_name = self._metric_logger._wandb.run.name
 
-        # NOTE FullModelHFCheckpointer mkdir parents=False in __init__ before save_config to cfg.checkpointer.output_dir
-        Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
-        ckpt_dict = self.load_checkpoint(cfg.checkpointer)
+        if isinstance(self._metric_logger, WandBLogger):
+            self._wandb_run_id = self._metric_logger._wandb.run.id
+            self.wandb_entity = self._metric_logger._wandb.api.viewer().get("entity")
+        else:
+            self._wandb_run_id = None
+            self.wandb_entity = None
 
-        # ``_setup_model`` handles initialization and loading the state dict. This method
-        # should be called before ``_setup_optimizer`` since transforming the optimizer
-        # state dict requires the model
+        cfg = self.setup_checkpointer(cfg=cfg)  # sets up checkpointer; and cfg.checkpointer.output_dir if not set
+        ckpt_dict = self.load_checkpoint()
+
         self._compile = cfg.compile
 
         cfg = self.resolve_vocab_size(cfg)
+
+        # _setup_model handles initialization loads state dict; should be called before
+        # _setup_optimizer since transforming the optimizer state dict requires the model
         self._model = self._setup_model(
             cfg_model=cfg.model,
             enable_activation_checkpointing=cfg.enable_activation_checkpointing,
@@ -260,7 +273,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             training.compile_loss(self._loss_fn)
 
         if self._loss_fn.__class__.__name__ == "CEWithChunkedOutputLoss":
-            # set num_output_chunks for model
             self._model.set_num_output_chunks(self._loss_fn.num_output_chunks)
 
         LOGGER.info("Loss is initialized.")
@@ -275,8 +287,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             collate_fn=collate_name,
         )
 
-        # Finally update the recipe state which can only be correctly set after all of the
-        # other components have been initialized and updated.
+        # Update recipe state - can only be correctly set after all other components have been initialized and updated.
         #
         # Number of training steps in each epoch depends on the number of batches produced
         # by the dataloader, the max_steps_per_epoch param set by the user and the
@@ -301,6 +312,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # Used to ignore labels for loss computation
         self.ignore_labels_cache = torch.full((cfg.batch_size, 1), self._loss_fn.ignore_index, device=self._device)
+
+        # log config with parameter override - do this last as methods resolve config items
+        self._metric_logger.log_config(cfg)
 
     def _setup_profiler(self, cfg_profiler: DictConfig | None = None) -> torch.profiler.profile | DummyProfiler:
         """
@@ -630,6 +644,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     # Need to fix `lr_scheduler.step()` before `optimizer.step()` warning
                     if self._lr_scheduler is not None:
                         self._lr_scheduler.step()
+
                     self.global_step += 1
 
                     loss_to_log = running_loss.item()
@@ -659,6 +674,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                             log_dict.update({"grad_norm": grad_norm})
                         self._metric_logger.log_dict(log_dict, step=self.global_step)
 
+                    # Save checkpoint
                     if self.global_step != 0 and self.global_step % self.save_steps == 0:
                         self.save_checkpoint(epoch=curr_epoch)
                         LOGGER.info(f"Checkpoint saved at step {self.global_step:0{self._steps_per_epoch_n_dig}d}")
