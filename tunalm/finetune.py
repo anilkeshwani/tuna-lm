@@ -156,13 +156,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.epochs_run = 0
         self.global_step = 0
 
-    # ✔️ max_steps_per_epoch -  check all gone
-    # ✔️ resolve max_steps by epoch or epoch by max_steps - resolver method
-    # ✔️ add hack to set checkpointer output_dir in save_checkpoint to specify output dir
-    # ✔️ handle the intermediate checkpoint variable on the basis of self.global_step vs max_steps
-    # maybe save cfg and an instance variable?
-    # future: do we want to save only one recipe state; maybe for now we can remove the previous one?
-    #         relatively easy to incorporate into save_checkpoint method - track previous out dir and remove recipe.pt
+    # - [x] max_steps_per_epoch -  check all gone
+    # - [x] resolve max_steps by epoch or epoch by max_steps - resolver method
+    # - [x] add hack to set checkpointer output_dir in save_checkpoint to specify output dir
+    # - [x] handle the intermediate checkpoint variable on the basis of self.global_step vs max_steps
+    # - [ ] maybe save cfg and an instance variable?
+    # - [ ] future: do we want to save only one recipe state; maybe for now we can remove the previous one?
+    #               relatively easy to incorporate into save_checkpoint method - track previous out dir and
+    #               remove recipe.pt
 
     def validate_cfg(self, cfg: DictConfig) -> None:
         if cfg.gradient_accumulation_steps > 1 and cfg.optimizer_in_bwd:
