@@ -102,7 +102,7 @@ checkpointer:
   resume_from_checkpoint: False
   safe_serialization: False
 
-save_steps: 1 # save every step for debugging
+save_steps: 382 # approx. every hour given 1.7 iters/sec and 16 grad. accum. steps
 
 # Logging
 metric_logger:
