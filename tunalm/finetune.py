@@ -625,8 +625,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     loss_to_log = running_loss.item()
 
                     LOGGER.info(
-                        f"{curr_epoch + 1:03d} | "
-                        f"{self.global_step:0{len(str(self._steps_per_epoch))}d} | "
+                        f"Epoch {curr_epoch + 1:03d} | "
+                        f"Global Step {self.global_step:0{len(str(self._steps_per_epoch))}d} | "
                         f"Loss: {loss_to_log:.4f}"
                     )
 
