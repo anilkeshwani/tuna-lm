@@ -283,9 +283,15 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             collate_fn=cfg.get("collate_fn", "torchtune.data.padded_collate_sft"),
         )
 
+        self.sampler_dev, self.data_dev = self.setup_data(
+            cfg_dataset=cfg.data.dev,
+            batch_size=cfg.batch_size * 2,  # NOTE heuristic
+            collate_fn=cfg.get("collate_fn", "torchtune.data.padded_collate_sft"),
+        )
+
         # update recipe state - can only be correctly set after all other components have been initialized and updated
         self.steps_per_epoch = max(1, len(self.data_train) // self.gradient_accumulation_steps)
-        self.max_steps = self.total_epochs * self.steps_per_epoch
+        self.max_steps = self.total_epochs * self.steps_per_epoch  # TODO implement max_steps support
 
         # set up lr scheduler
         self.lr_scheduler = self.setup_lr_scheduler(
@@ -294,11 +300,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             last_epoch=self.global_step - 1,
         )
 
-        # set up profiler - returns DummyProfiler (nullcontext object with no-op `step` method)
-        # if cfg is missing profiler key or if `cfg.profiler.enabled = False`
+        # set up profiler - returns DummyProfiler (nullcontext object with no-op `step` method) if disabled
         self.profiler = self.setup_profiler(cfg.get(PROFILER_KEY, None))
 
-        # log config with parameter override - do this last as methods resolve config items
+        # log config with parameter overrides. NOTE Do this last, after methods resolve config items
         self.metric_logger.log_config(cfg)
 
     def setup_profiler(self, cfg_profiler: DictConfig | None = None) -> torch.profiler.profile | DummyProfiler:
@@ -593,6 +598,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                 utils.batch_to_device(batch, self.device)
                 num_tokens += batch["tokens"].numel()  # TODO if not packed, surely this is meaningless (pad tokens)
+                # num_tokens += (batch["tokens"] != self.tokenizer.pad_id).sum().item()  # TODO think it should be this
 
                 loss = self.loss_step(batch)
                 loss = loss / self.gradient_accumulation_steps
