@@ -33,20 +33,29 @@ tokenizer:
   max_seq_len: null # set to 128000000 when packing? (max seq. length per `llama model describe -m Llama3.2-1B`)
   prompt_template: null
 
-# Dataset
-dataset:
-  _component_: torchtune.datasets.text_completion_dataset
-  source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert_interleaved # specified as a HF dataset
-  column: text
-  split: train
-  add_eos: True
-  shuffle: True
-  packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
-  # split_across_pack: True # set to True for CPT; set to False for SFT
-  # tokenizer: # set above
-  # NOTE Following arguments copied across from text_completion_dataset docstring for reference
-  # filter_fn: Optional[Callable] = None
-  # **load_dataset_kwargs: Dict[str, Any]
+# Data
+data:
+  train:
+    _component_: torchtune.datasets.text_completion_dataset
+    source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert_interleaved # specified as a HF dataset
+    column: text
+    split: train
+    add_eos: True
+    shuffle: True
+    packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
+    # split_across_pack: True # set to True for CPT; set to False for SFT
+    # tokenizer: # set above
+    # NOTE Following arguments copied across from text_completion_dataset docstring for reference
+    # filter_fn: Optional[Callable] = None
+    # **load_dataset_kwargs: Dict[str, Any]
+  val:
+    _component_: torchtune.datasets.text_completion_dataset
+    source: anilkeshwani/MLS_english_val_strat_sample_aligned_hubert_interleaved # specified as a HF dataset
+    column: text
+    split: dev
+    add_eos: True
+    shuffle: False
+    packed: False
 
 seed: null
 

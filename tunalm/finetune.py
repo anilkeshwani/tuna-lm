@@ -211,6 +211,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Prevented overrides
             if self.seed != ckpt_dict[training.SEED_KEY]:
                 self.seed = ckpt_dict[training.SEED_KEY]
+                # TODO maybe make this an error instead of a warning
                 warn(f"Config value for seed does not match checkpoint value. Used checkpoint value: {self.seed}")
             # Allowed overrides
             if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
@@ -282,7 +283,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # sampler & dataloader depend on tokenizer & loss_fn -> set up after dependencies are initialized
         self.sampler_train, self.data_train = self.setup_data(
-            cfg_dataset=cfg.dataset,
+            cfg_dataset=cfg.data.train,
             batch_size=cfg.batch_size,
             collate_fn=cfg.get("collate_fn", "torchtune.data.padded_collate_sft"),
         )
