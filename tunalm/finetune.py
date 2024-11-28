@@ -193,10 +193,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     def load_checkpoint(self) -> dict[str, Any]:
         checkpoint_dict = self._checkpointer.load_checkpoint()
         if self._resume_from_checkpoint:
-            self._update_recipe_state(checkpoint_dict)
+            self.update_recipe_state(checkpoint_dict)
         return checkpoint_dict
 
-    def _update_recipe_state(self, ckpt_dict: dict[str, Any]) -> None:
+    def update_recipe_state(self, ckpt_dict: dict[str, Any]) -> None:
         """Updates the recipe state from checkpoint."""
         try:
             self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
