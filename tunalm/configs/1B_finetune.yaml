@@ -57,6 +57,9 @@ data:
     shuffle: False
     packed: False
 
+# Evaluation
+eval_steps: ${save_steps}
+
 seed: null
 
 # Optimization
@@ -109,7 +112,7 @@ checkpointer:
   resume_from_checkpoint: False
   safe_serialization: False
 
-save_steps: 382 # approx. every hour given 1.7 iters/sec and 16 grad. accum. steps
+save_steps: 2 # 382 is approx. every hour given 1.7 iters/sec and 16 grad. accum. steps
 
 # Logging
 metric_logger:

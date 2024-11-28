@@ -137,6 +137,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.resume_from_checkpoint = cfg.checkpointer.resume_from_checkpoint
         self.gradient_accumulation_steps = cfg.gradient_accumulation_steps
         self.optimizer_in_bwd = cfg.optimizer_in_bwd
+        self.eval_steps = cfg.eval_steps
 
         # public attrs updated by the checkpoint loader when resume_from_checkpoint=True or validated in tests
         self.seed = training.set_seed(seed=cfg.seed)
@@ -175,6 +176,18 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             )
         if bool(cfg.epochs) == bool(cfg.max_steps):
             raise ValueError("Either epochs or max_steps must be set, but not both.")
+
+        if not cfg.log_every_n_steps:
+            raise ValueError("log_every_n_steps must be set in the config.")
+
+        if not cfg.save_steps:
+            raise ValueError("save_steps must be set in the config.")
+
+        if cfg.eval_steps % cfg.log_every_n_steps != 0:
+            raise ValueError("eval_steps must be an integer multiple by log_every_n_steps")
+
+        if cfg.save_steps % cfg.eval_steps != 0:
+            raise ValueError("save_steps must be an integer multiple by eval_steps")
 
         if cfg.max_steps is not None:
             raise NotImplementedError("Implement max_steps support.")  # TODO implement max_steps support
@@ -625,9 +638,30 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                     LOGGER.info(
                         f"Epoch {curr_epoch + 1:03d} | "
+                        f"Iter {i:0{len(str(self.steps_per_epoch))}d} / {self.steps_per_epoch} | "
                         f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "
                         f"Loss: {loss_to_log:.4f}"
                     )
+
+                    # Evaluate model on dev set
+                    if self.global_step != 0 and self.global_step % self.eval_steps == 0:
+                        dev_loss = 0
+                        self.model.eval()
+                        with torch.inference_mode():
+                            for i_dev, dev_batch in enumerate(self.data_dev):
+                                utils.batch_to_device(dev_batch, self.device)
+                                dev_loss_batch = self.loss_step(dev_batch)
+                                LOGGER.info(
+                                    f"Epoch {curr_epoch + 1:03d} | "
+                                    f"Iter {i:0{len(str(self.steps_per_epoch))}d} / {self.steps_per_epoch} | "
+                                    f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "
+                                    f"Dev Batch {i_dev:0{len(str(len(self.data_dev)))}d} / {len(self.data_dev)} | "
+                                    f"Dev Loss (batch): {dev_loss_batch.item():.4f}"
+                                )
+                                dev_loss += dev_loss_batch.item()  # reduction is mean over non-ignored label elements
+                        self.model.train()
+                    else:
+                        dev_loss = None  # did not evaluate at this step
 
                     # Log per-step metrics
                     if self.global_step % self.log_every_n_steps == 0:
@@ -646,6 +680,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                             log_dict.update(training.get_memory_stats(device=self.device))
                         if self.clip_grad_norm is not None:
                             log_dict.update({"grad_norm": grad_norm})
+                        if dev_loss is not None:
+                            log_dict.update({"dev_loss": dev_loss})
                         self.metric_logger.log_dict(log_dict, step=self.global_step)
 
                     # Save checkpoint
@@ -671,7 +707,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # if the schedule cycle doesn't align with gradient accumulation.
                 self.profiler.step()
 
-            self.epochs_run += 1  # TODO FIXME set on basis of ckpt global step
+            self.epochs_run += 1
 
         self.profiler.stop()
 
