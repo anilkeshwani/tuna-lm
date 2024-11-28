@@ -586,13 +586,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         for curr_epoch in range(self.epochs_run, self.total_epochs):  # TODO refactor to while? (break out inner)
             self.sampler_train.set_epoch(curr_epoch)  # obtain distinct seed on each epoch via DistributedSampler
 
-            for idx, batch in tqdm(enumerate(self.data_train), total=self.steps_per_epoch):  # TODO make function?
+            for i, batch in tqdm(enumerate(self.data_train), total=self.steps_per_epoch):  # TODO make function?
                 # Start tracking CUDA memory for active steps for just the first epoch
                 # TODO Won't this break when resuming from checkpoints with epochs_run > 0?
                 if (
                     curr_epoch == 0
                     and self.profiler_profile_memory
-                    and idx == self.profiler_wait_steps + self.profiler_warmup_steps
+                    and i == self.profiler_wait_steps + self.profiler_warmup_steps
                 ):
                     torch.cuda.memory._record_memory_history()
 
@@ -606,7 +606,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 loss.backward()
 
                 # Optimizer step (on reaching effective batch size)
-                if (idx + 1) % self.gradient_accumulation_steps == 0:
+                if (i + 1) % self.gradient_accumulation_steps == 0:
                     if self.clip_grad_norm is not None:
                         grad_norm = torch.nn.utils.clip_grad_norm_(
                             self.model.parameters(), max_norm=float(self.clip_grad_norm)
@@ -662,7 +662,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 if (
                     curr_epoch == 0
                     and self.profiler_profile_memory
-                    and idx == self.profiler_wait_steps + self.profiler_warmup_steps + self.profiler_active_steps
+                    and i == self.profiler_wait_steps + self.profiler_warmup_steps + self.profiler_active_steps
                 ):
                     torch.cuda.memory._record_memory_history(enabled=None)
 
