@@ -283,7 +283,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # sampler & dataloader depend on tokenizer & loss_fn -> set up after dependencies are initialized
         self.sampler_train, self.data_train = self.setup_data(
             cfg_dataset=cfg.dataset,
-            shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
             collate_fn=cfg.get("collate_fn", "torchtune.data.padded_collate_sft"),
         )
@@ -489,7 +488,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     def setup_data(
         self,
         cfg_dataset: DictConfig,
-        shuffle: bool,
         batch_size: int,
         collate_fn: str,
     ) -> tuple[DistributedSampler, DataLoader]:
@@ -509,7 +507,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise RuntimeError("left_pad_sequence collator is only for inference.")
         collate_fn = _get_component_from_path(collate_fn)
 
-        sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=shuffle, seed=0)
+        sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=cfg_dataset.shuffle, seed=0)
         dataloader = DataLoader(
             dataset=ds,
             batch_size=batch_size,

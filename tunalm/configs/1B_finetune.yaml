@@ -40,17 +40,15 @@ dataset:
   column: text
   split: train
   add_eos: True
+  shuffle: True
   packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
   # split_across_pack: True # set to True for CPT; set to False for SFT
-
   # tokenizer: # set above
-
   # NOTE Following arguments copied across from text_completion_dataset docstring for reference
   # filter_fn: Optional[Callable] = None
   # **load_dataset_kwargs: Dict[str, Any]
 
 seed: null
-shuffle: True # TODO why is shuffle top-level; not under dataset?
 
 # Optimization
 epochs: 5
