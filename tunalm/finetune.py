@@ -552,7 +552,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         )
         self._checkpointer._output_dir = _ckptr_output_dir_canonical  # reset to top-level ckptr out dir for next ckpt
 
-    def _loss_step(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+    def loss_step(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
         labels = batch.pop("labels")
         logits = self._model(**batch)
@@ -599,7 +599,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 utils.batch_to_device(batch, self._device)
                 num_tokens += batch["tokens"].numel()  # TODO if not packed, surely this is meaningless (pad tokens)
 
-                loss = self._loss_step(batch)
+                loss = self.loss_step(batch)
                 loss = loss / self._gradient_accumulation_steps
                 running_loss += loss
                 loss.backward()
