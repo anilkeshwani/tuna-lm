@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
 import os
 import pdb
 import sys
@@ -252,9 +246,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         cfg = self.resolve_vocab_size(cfg)
 
-        # _setup_model handles initialization loads state dict; should be called before
-        # _setup_optimizer since transforming the optimizer state dict requires the model
-        self._model = self._setup_model(
+        # setup_model handles initialization loads state dict; should be called before
+        # setup_optimizer since transforming the optimizer state dict requires the model
+        self._model = self.setup_model(
             cfg_model=cfg.model,
             enable_activation_checkpointing=cfg.enable_activation_checkpointing,
             compile_model=self._compile,
@@ -263,9 +257,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         self._tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
 
-        # _setup_optimizer should take in ckpt_dict only if training is resumed from
+        # setup_optimizer should take in ckpt_dict only if training is resumed from
         # checkpoint. Transforming the opt state dict is handled by this method
-        self._optimizer = self._setup_optimizer(
+        self._optimizer = self.setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             optimizer_in_bwd=cfg.optimizer_in_bwd,
             opt_state_dict=(ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None),
@@ -293,7 +287,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.max_steps = self.total_epochs * self._steps_per_epoch
 
         # set up lr scheduler
-        self._lr_scheduler = self._setup_lr_scheduler(
+        self._lr_scheduler = self.setup_lr_scheduler(
             cfg_lr_scheduler=cfg.get("lr_scheduler", None),
             num_training_steps=self.max_steps,
             last_epoch=self.global_step - 1,
@@ -301,12 +295,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # set up profiler - returns DummyProfiler (nullcontext object with no-op `step` method)
         # if cfg is missing profiler key or if `cfg.profiler.enabled = False`
-        self._profiler = self._setup_profiler(cfg.get(PROFILER_KEY, None))
+        self._profiler = self.setup_profiler(cfg.get(PROFILER_KEY, None))
 
         # log config with parameter override - do this last as methods resolve config items
         self._metric_logger.log_config(cfg)
 
-    def _setup_profiler(self, cfg_profiler: DictConfig | None = None) -> torch.profiler.profile | DummyProfiler:
+    def setup_profiler(self, cfg_profiler: DictConfig | None = None) -> torch.profiler.profile | DummyProfiler:
         """
         Parses the `profiler` section of top-level `cfg` and sets up profiler
 
@@ -370,7 +364,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         return profiler
 
-    def _setup_model(
+    def setup_model(
         self,
         cfg_model: DictConfig,
         enable_activation_checkpointing: bool,
@@ -401,7 +395,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         return model
 
-    def _setup_optimizer(
+    def setup_optimizer(
         self,
         cfg_optimizer: DictConfig,
         optimizer_in_bwd: bool = False,
@@ -438,7 +432,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             LOGGER.info("Optimizer is initialized.")
             return optimizer
 
-    def _setup_lr_scheduler(
+    def setup_lr_scheduler(
         self,
         cfg_lr_scheduler: DictConfig | None,
         num_training_steps: int,
