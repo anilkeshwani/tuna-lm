@@ -281,7 +281,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         LOGGER.info("Loss is initialized.")
 
         # sampler & dataloader depend on tokenizer & loss_fn -> set up after dependencies are initialized
-        self._sampler, self._dataloader = self._setup_data(
+        self._sampler, self._dataloader = self.setup_data(
             cfg_dataset=cfg.dataset,
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
@@ -486,7 +486,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         LOGGER.info("Learning rate scheduler is initialized.")
         return lr_scheduler
 
-    def _setup_data(
+    def setup_data(
         self,
         cfg_dataset: DictConfig,
         shuffle: bool,
@@ -494,9 +494,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         collate_fn: str,
     ) -> tuple[DistributedSampler, DataLoader]:
         """
-        All data related setup happens here. Currently this recipe only supports the
-        DistributedSamplers with Map-style Datasets which fit into memory. Other samplers,
-        iterable datasets and streaming datasets are not supported.
+        Currently only supports DistributedSamplers with Map-style Datasets which fit into memory.
+        Other samplers, iterable datasets and streaming datasets are not supported.
         """
         if isinstance(cfg_dataset, ListConfig):
             datasets = [config.instantiate(single_cfg_dataset, self._tokenizer) for single_cfg_dataset in cfg_dataset]
