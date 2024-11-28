@@ -303,9 +303,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # if cfg is missing profiler key or if `cfg.profiler.enabled = False`
         self._profiler = self._setup_profiler(cfg.get(PROFILER_KEY, None))
 
-        # used to ignore labels for loss computation
-        self.ignore_labels_cache = torch.full((cfg.batch_size, 1), self._loss_fn.ignore_index, device=self._device)
-
         # log config with parameter override - do this last as methods resolve config items
         self._metric_logger.log_config(cfg)
 
@@ -497,10 +494,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         Other samplers, iterable datasets and streaming datasets are not supported.
         """
         if isinstance(cfg_dataset, ListConfig):
+            raise NotImplementedError("Support for the shuffle parameter needs to be added to use ConcatDataset.")
             datasets = [config.instantiate(single_cfg_dataset, self._tokenizer) for single_cfg_dataset in cfg_dataset]
             ds = ConcatDataset(datasets=datasets)
             packed = False
         else:
+            shuffle = cfg_dataset.pop("shuffle")
             ds = config.instantiate(cfg_dataset, self._tokenizer)
             packed = cfg_dataset.get("packed", False)
 
@@ -508,7 +507,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise RuntimeError("left_pad_sequence collator is only for inference.")
         collate_fn = _get_component_from_path(collate_fn)
 
-        sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=cfg_dataset.shuffle, seed=0)
+        sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=shuffle, seed=0)
         dataloader = DataLoader(
             dataset=ds,
             batch_size=batch_size,
@@ -556,22 +555,17 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     def _loss_step(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
         labels = batch.pop("labels")
-
         logits = self._model(**batch)
-
-        # Shift labels to compute loss
-        # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
-        # But this way we dont need to slice the logits. We just add an ignore index to labels.
-        labels = torch.hstack((labels[..., 1:], self.ignore_labels_cache[: labels.shape[0]]))
+        # Shift labels to compute loss; equivalent to labels[..., 1:] and logits[..., :-1, :] w/o slicing logits
+        # TODO NOTE cache this as an instance variable if slowdown detected; does this form torch.compile?
+        labels = torch.hstack(
+            (labels[..., 1:], torch.full((labels.size(0), 1), self._loss_fn.ignore_index, device=self._device))
+        )
         if not isinstance(logits, list):
             labels = labels.reshape(-1)
             logits = logits.reshape(-1, logits.size(-1))
-
-        # Compute loss
-        loss = self._loss_fn(logits, labels)
-
+        loss = self._loss_fn(logits, labels)  # compute loss
         del logits  # free logits otherwise it peaks backward memory
-
         return loss
 
     def train(self) -> None:
