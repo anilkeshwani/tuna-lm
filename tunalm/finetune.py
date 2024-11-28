@@ -156,10 +156,17 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.epochs_run = 0
         self.global_step = 0
 
+    # TODO Recipe:
     # - [x] max_steps_per_epoch -  check all gone
     # - [x] resolve max_steps by epoch or epoch by max_steps - resolver method
     # - [x] add hack to set checkpointer output_dir in save_checkpoint to specify output dir
     # - [x] handle the intermediate checkpoint variable on the basis of self.global_step vs max_steps
+    # - [ ] Add support for max iterations
+    # - [ ] Add evaluation loop every eval_steps iterations
+    # - [ ] create MLS validation set (both interleaved, ASR concat style)
+    # - [ ] add validation loop
+    # - [ ] compute ASR on validation as well - HF evaluate with normalizations
+    # - [ ] fix out dir vs ckpt dir - config JSON is written to  checkpoints/ dir
     # - [ ] maybe save cfg and an instance variable?
     # - [ ] future: do we want to save only one recipe state; maybe for now we can remove the previous one?
     #               relatively easy to incorporate into save_checkpoint method - track previous out dir and
@@ -208,6 +215,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Allowed overrides
             if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
                 warn(f"Overriding checkpoint total_epochs with value specified in config: {self.total_epochs}")
+
+            LOGGER.info(f"Successfully resumed training from recipe state in: {self._checkpointer._recipe_checkpoint}")
+            LOGGER.info(f"Resuming from epoch {self.epochs_run} and global step {self.global_step}")
         except KeyError as e:
             raise KeyError("Recipe checkpoint missing required keys. Ensure recipe checkpoint path is correct.") from e
 
@@ -582,15 +592,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         self._profiler.start()
 
-        # TODO FIXME set on basis of ckpt global step
-        if self._resume_from_checkpoint:
-            assert self.epochs_run > 0, "Epochs run self.epochs_run should be non-zero when resuming from a checkpoint"
-
-        for curr_epoch in range(self.epochs_run, self.total_epochs):
+        for curr_epoch in range(self.epochs_run, self.total_epochs):  # TODO refactor to while? (break out inner)
             self._sampler.set_epoch(curr_epoch)  # correctly shuffle data across epochs if shuffle=True
 
-            for idx, batch in tqdm(enumerate(self._dataloader), total=self._steps_per_epoch):
+            for idx, batch in tqdm(enumerate(self._dataloader), total=self._steps_per_epoch):  # TODO make function?
                 # Start tracking CUDA memory for active steps for just the first epoch
+                # TODO Won't this break when resuming from checkpoints with epochs_run > 0?
                 if (
                     curr_epoch == 0
                     and self.profiler_profile_memory
@@ -635,8 +642,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         time_per_step = time.perf_counter() - t0
                         log_dict = {
                             "loss": loss_to_log,
-                            # NOTE: for optim in backward, this assumes all optimizers have the same LR. This is
-                            # currently true since we don't expose the ability to configure this yet.
+                            # NOTE optimizer_in_bwd assumes all optimizers have same LR; currently can't config diff LRs
                             "lr": (
                                 self._optim_ckpt_wrapper.get_optim_key("lr")
                                 if self._optimizer_in_bwd
@@ -699,8 +705,3 @@ def recipe_main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     sys.exit(recipe_main())
-
-
-# TODO Recipe:
-# - Add support for max iterations
-# - Add evaluation loop every eval_steps iterations
