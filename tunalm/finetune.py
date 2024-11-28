@@ -265,13 +265,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             opt_state_dict=(ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None),
         )
 
-        self._loss_fn = config.instantiate(cfg.loss)  # initialize loss function
+        self.loss_fn = config.instantiate(cfg.loss)  # initialize loss function
 
         if self._compile:
-            training.compile_loss(self._loss_fn)
+            training.compile_loss(self.loss_fn)
 
-        if self._loss_fn.__class__.__name__ == "CEWithChunkedOutputLoss":
-            self._model.set_num_output_chunks(self._loss_fn.num_output_chunks)
+        if self.loss_fn.__class__.__name__ == "CEWithChunkedOutputLoss":
+            self._model.set_num_output_chunks(self.loss_fn.num_output_chunks)
 
         LOGGER.info("Loss is initialized.")
 
@@ -508,7 +508,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             sampler=sampler,
             drop_last=True,  # dropping last avoids shape issues with compile + flex attention
             collate_fn=(
-                partial(collate_fn, padding_idx=self._tokenizer.pad_id, ignore_idx=self._loss_fn.ignore_index)
+                partial(collate_fn, padding_idx=self._tokenizer.pad_id, ignore_idx=self.loss_fn.ignore_index)
                 if not packed
                 else padded_collate_packed
             ),
@@ -553,12 +553,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Shift labels to compute loss; equivalent to labels[..., 1:] and logits[..., :-1, :] w/o slicing logits
         # TODO NOTE cache this as an instance variable if slowdown detected; does this form torch.compile?
         labels = torch.hstack(
-            (labels[..., 1:], torch.full((labels.size(0), 1), self._loss_fn.ignore_index, device=self._device))
+            (labels[..., 1:], torch.full((labels.size(0), 1), self.loss_fn.ignore_index, device=self._device))
         )
         if not isinstance(logits, list):
             labels = labels.reshape(-1)
             logits = logits.reshape(-1, logits.size(-1))
-        loss = self._loss_fn(logits, labels)  # compute loss
+        loss = self.loss_fn(logits, labels)  # compute loss
         del logits  # free logits otherwise it peaks backward memory
         return loss
 
