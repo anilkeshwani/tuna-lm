@@ -281,7 +281,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         LOGGER.info("Loss is initialized.")
 
         # sampler & dataloader depend on tokenizer & loss_fn -> set up after dependencies are initialized
-        self._sampler, self._dataloader = self.setup_data(
+        self.sampler_train, self.data_train = self.setup_data(
             cfg_dataset=cfg.dataset,
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
@@ -289,7 +289,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         )
 
         # update recipe state - can only be correctly set after all other components have been initialized and updated
-        self._steps_per_epoch = max(1, len(self._dataloader) // self._gradient_accumulation_steps)
+        self._steps_per_epoch = max(1, len(self.data_train) // self._gradient_accumulation_steps)
         self.max_steps = self.total_epochs * self._steps_per_epoch
 
         # set up lr scheduler
@@ -505,7 +505,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             ds = config.instantiate(cfg_dataset, self._tokenizer)
             packed = cfg_dataset.get("packed", False)
 
-        # Instantiate collate_fn
         if "left_pad_sequence" in collate_fn:
             raise RuntimeError("left_pad_sequence collator is only for inference.")
         collate_fn = _get_component_from_path(collate_fn)
@@ -523,7 +522,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             ),
         )
 
-        LOGGER.info("Dataset and Sampler are initialized.")
+        LOGGER.info(f"Dataset and Sampler initialized from {cfg_dataset.source}.")
 
         return sampler, dataloader
 
@@ -592,9 +591,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._profiler.start()
 
         for curr_epoch in range(self.epochs_run, self.total_epochs):  # TODO refactor to while? (break out inner)
-            self._sampler.set_epoch(curr_epoch)  # correctly shuffle data across epochs if shuffle=True
+            self.sampler_train.set_epoch(curr_epoch)  # obtain distinct seed on each epoch via DistributedSampler
 
-            for idx, batch in tqdm(enumerate(self._dataloader), total=self._steps_per_epoch):  # TODO make function?
+            for idx, batch in tqdm(enumerate(self.data_train), total=self._steps_per_epoch):  # TODO make function?
                 # Start tracking CUDA memory for active steps for just the first epoch
                 # TODO Won't this break when resuming from checkpoints with epochs_run > 0?
                 if (
