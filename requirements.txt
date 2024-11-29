@@ -3,7 +3,7 @@ torchvision
 torchao
 wandb
 tiktoken==0.8.0
--e ./submodules/torchtune/
+git+https://github.com/pytorch/torchtune.git@7d29c211#egg=torchtune
 
 # Development
 black==24.4.2

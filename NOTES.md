@@ -1,3 +1,29 @@
+## Tokenizer Extension & Hugging Face Interoperability
+
+### Minimal requirements for generation
+
+- [x] config.json -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/83b8b2aebb1a987b3802dae75fb9470234a3aaaf
+- [x] model.safetensors -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/68a2e4be76fa709455a60272fba8e512c02d81c46e6c671cc9449e374fd6809a
+- [ ] tokenizer_config.json -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/cb9ec25536e44d86778b10509d3e5bdca459a5cf
+    - need to added_tokens_decoder key in JSON and increment all entries by the number of additional tokens added
+    - TODO why wasn't this a problem at training time?
+- [ ] tokenizer.json -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/5cc5f00a5b203e90a27a3bd60d1ec393b07971e8
+    - the added_tokens_decoder field from tokenizer_config.json slots in here as the added_tokens field (top-level)
+
+#### Not required 
+
+Note: We don't need the generation config either - assuming I can pass those setting at runtime.
+
+- generation_config.json -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/2d73a6863086ff9d491c28e49df9fb697cd92c2b
+- special_tokens_map.json -> /mnt/scratch-artemis/anilkeshwani/huggingface/hub/models--meta-llama--Llama-3.2-1B/blobs/cfabacc2620186cd3dd4b1dde9a37e057208636e
+
+Converting the Hugging Face tokenizer files for use with vLLM was hairy; lack of documentation on which fields were used/updated when extending the model. 
+
+### To Do - Tokenizer Extension & Hugging Face Interoperability
+
+- Check the source code of the HF add tokens function to see which attributes are modified (requires tracking downstream serialisation of these attributes). 
+- Try this implemented by directly using HF's `add_tokens` function, per our previous approach. 
+
 ## Configurations
 
 Minimal notes on configurations, retained here for reference and often taken from YAML file comment headers. 
