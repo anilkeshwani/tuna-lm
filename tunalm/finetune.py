@@ -686,59 +686,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         self.profiler.stop()
 
-    @torch.inference_mode()
-    def generate(
-        self,
-        prompts: list[str],
-        temperature: float = 0.0,  # greedy by default # TODO should I set this to eps e.g. 1-e-6?
-        top_k: int | None = None,  # TODO implement nucleus sampling
-        max_generated_tokens: int = 512,
-        rng: torch.Generator | None = None,
-        custom_generate_next_token: Callable | None = None,
-        stop_tokens: list[int] | None = None,
-    ) -> tuple[Tensor, Tensor]:
-        """
-        Generates tokens from a model conditioned on a prompt, and also returns logits for the generations.
-
-        Args:
-            prompts (list[str]): list of prompts
-            max_generated_tokens (int): maximum number of tokens generated
-            temperature (float): value to scale the predicted logits by; greedy decoding by default (0.0)
-            top_k (int | None): If specified, we prune the sampling to only token ids within the top_k probabilities,
-                default None.
-            rng (torch.Generator | None): random number generator, default None.
-            custom_generate_next_token (Callable | None): Custom next token generation function; generally only useful
-                to specify a ``torch.compile`` version of the generate next token for performance reasons.
-                If None, we use the default :func:`generate_next_token`. Default is None.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: tuple of two tensors:
-                - tokens (torch.Tensor): tensor with the generated tokens,
-                    with shape ``[bsz x seq_len + num_generated_tokens]`` where ``num_generated_tokens``
-                    may be less than ``max_generated_tokens`` if ``stop_tokens`` are provided.
-                - logits (torch.Tensor): tensor with the logits associated with the generated tokens,
-                    with shape ``[bsz x seq_len + num_generated_tokens x vocab_size]``.
-
-        NOTE: This is a thin wrapper around torchtune.generation.generate. torch.inference_mode decorator is redundant.
-        """
-        if stop_tokens is None:
-            stop_tokens = [self.tokenizer.eos_id]
-        prompts_ids: Tensor = torch.tensor([self.tokenizer.encode(prompt) for prompt in prompts]).to(self.device)
-        self.model.eval()
-        output, logits = generate(
-            self.model,
-            prompts_ids,
-            max_generated_tokens=max_generated_tokens,
-            pad_id=self.tokenizer.pad_id,  # TODO CHECK
-            temperature=temperature,
-            top_k=top_k,
-            stop_tokens=stop_tokens,
-            rng=rng,
-            custom_generate_next_token=custom_generate_next_token,
-        )
-        self.model.train()
-        return output, logits
-
     def cleanup(self) -> None:
         self.metric_logger.close()
 
