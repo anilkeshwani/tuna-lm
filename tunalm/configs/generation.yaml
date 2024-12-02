@@ -1,8 +1,3 @@
-# Config for running the InferenceRecipe in generate.py to generate output from an LLM
-#
-# To launch, run the following command from root torchtune directory:
-#    tune run generate --config generation
-
 # Model Arguments
 model:
   _component_: torchtune.models.llama3_2.llama3_2 # replaced llama3_2_1b with generic Llama 3.2 function

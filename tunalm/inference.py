@@ -134,9 +134,6 @@ class InferenceRecipeSingleDevice:
         self.model.train()
         return output, logits
 
-    def cleanup(self) -> None:
-        self.metric_logger.close()
-
 
 @config.parse
 def recipe_main(cfg: DictConfig) -> None:
@@ -151,7 +148,6 @@ def recipe_main(cfg: DictConfig) -> None:
     recipe = InferenceRecipeSingleDevice(cfg=cfg)
     recipe.setup(cfg=cfg)
     recipe.generate()
-    recipe.cleanup()
 
 
 if __name__ == "__main__":
