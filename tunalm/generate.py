@@ -33,8 +33,10 @@ class InferenceRecipe:
     def setup(self, cfg: DictConfig) -> None:
         checkpointer = config.instantiate(cfg.checkpointer)
         ckpt_dict = checkpointer.load_checkpoint()
+        assert cfg.model.vocab_size is None, "Do not set vocab_size explicitly. It is inferred dynamically given n_dsus"
+        cfg.model.vocab_size = cfg.base_vocab_size + cfg.n_special_tokens + cfg.n_dsus
         self.model = self.setup_model(model_cfg=cfg.model, model_state_dict=ckpt_dict[training.MODEL_KEY])
-        self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
+        self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path, verbose=False)
 
     def setup_model(self, model_cfg: DictConfig, model_state_dict: dict[str, Any]) -> Module:
         with training.set_default_dtype(self._dtype), self._device:

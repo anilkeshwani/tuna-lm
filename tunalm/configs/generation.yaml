@@ -1,7 +1,7 @@
 # Model Arguments
 model:
   _component_: torchtune.models.llama3_2.llama3_2 # replaced llama3_2_1b with generic Llama 3.2 function
-  vocab_size: 133256
+  vocab_size: null
   num_layers: 16
   num_heads: 32
   num_kv_heads: 8
@@ -13,6 +13,10 @@ model:
   norm_eps: 1e-5
   scale_factor: 32
 
+base_vocab_size: 128000
+n_special_tokens: 256
+n_dsus: 5000
+
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: /mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/
@@ -21,7 +25,7 @@ checkpointer:
   model_type: LLAMA3_2
 
 device: cuda
-dtype: fp32
+dtype: bf16
 
 seed: 1234
 
@@ -40,5 +44,3 @@ temperature: 0.6 # 0.8 and 0.6 are popular values to try
 top_k: 300
 
 enable_kv_cache: True
-
-quantizer: null

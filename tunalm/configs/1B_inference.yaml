@@ -7,9 +7,8 @@ experiment_name: null # if null, set to W&B run name
 
 # Model Arguments
 model:
-  _component_: torchtune.models.llama3_2.llama3_2 # replaced llama3_2_1b with generic Llama 3.2 function
-  vocab_size: null # (int) # NOTE DO NOT SET -> set dynamically as base_vocab_size + n_special_tokens + n_dsus
-  # Llama 3.2 1B model architecture spec.
+  _component_: torchtune.models.llama3_2.llama3_2
+  vocab_size: null
   num_layers: 16
   num_heads: 32
   num_kv_heads: 8
