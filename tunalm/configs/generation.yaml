@@ -1,0 +1,49 @@
+# Config for running the InferenceRecipe in generate.py to generate output from an LLM
+#
+# To launch, run the following command from root torchtune directory:
+#    tune run generate --config generation
+
+# Model Arguments
+model:
+  _component_: torchtune.models.llama3_2.llama3_2 # replaced llama3_2_1b with generic Llama 3.2 function
+  vocab_size: 133256
+  num_layers: 16
+  num_heads: 32
+  num_kv_heads: 8
+  embed_dim: 2048
+  max_seq_len: 131072
+  attn_dropout: 0.0
+  rope_base: 500000
+  intermediate_dim: 8192
+  norm_eps: 1e-5
+  scale_factor: 32
+
+checkpointer:
+  _component_: torchtune.training.FullModelHFCheckpointer
+  checkpoint_dir: /mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/
+  checkpoint_files: [hf_model_0001_0.pt]
+  output_dir: /mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/
+  model_type: LLAMA3_2
+
+device: cuda
+dtype: fp32
+
+seed: 1234
+
+# Tokenizer arguments
+tokenizer:
+  _component_: torchtune.models.llama2.llama2_tokenizer
+  path: /mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/original/tokenizer.model
+  max_seq_len: null
+
+# Generation arguments; defaults taken from gpt-fast
+prompt: "To say 'I am going on a trip' in French, you say"
+instruct_template: null
+chat_format: null
+max_new_tokens: 500
+temperature: 0.6 # 0.8 and 0.6 are popular values to try
+top_k: 300
+
+enable_kv_cache: True
+
+quantizer: null
