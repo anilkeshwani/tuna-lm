@@ -1,5 +1,7 @@
 # To Do
 
+- [ ] BUG: Re-run CPT "finetune.py" recipes without using add_eos: True - this shouldn't be appended for CPT (where we want continuations)
+
 **Llama 3.2 1B Continued Pre-Training (CPT)**
 - [x] Set optimal batch size with gradient accumulation based on Llama 3.2 technical report
     - not mentioned - also Llama 3.2 1B doesn't have report/paper
