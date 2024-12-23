@@ -11,6 +11,7 @@
 - [ ] Check tokenization valid
 - [ ] Implement stopping based on max iterations
 - [ ] Optional: Update to latest torchtune (some LR impl? What about max steps stopping?)
+- [ ] Add the MMS normalizer as well as the Whisper normalizer to the WER evaluation function or module
 
 ## TODO Recipe
 
