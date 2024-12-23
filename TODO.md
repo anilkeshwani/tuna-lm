@@ -2,6 +2,14 @@
 
 - [ ] BUG: Re-run CPT "finetune.py" recipes without using add_eos: True - this shouldn't be appended for CPT (where we want continuations)
 
+No textual data used for CPT. Options for CPT:
+
+- mix text and ASR-style data
+    - caveat: Llama 3.2 1B is trained from distillation - maybe next token prediction is not well suited - we should decide this empirically
+- use checkpoint averaging
+    - there is some literature to back up that all you need to prevent catastrophic forgetting is checkpoint averaging
+    - find this literature in Obsidian vault
+
 **Llama 3.2 1B Continued Pre-Training (CPT)**
 - [x] Set optimal batch size with gradient accumulation based on Llama 3.2 technical report
     - not mentioned - also Llama 3.2 1B doesn't have report/paper
