@@ -480,12 +480,15 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         """
         Currently only supports DistributedSamplers with Map-style Datasets which fit into memory.
         Other samplers, iterable datasets and streaming datasets are not supported.
+
+        NOTE The sampler is both passed in to defined the dataloader and returned for purpose of
+        setting epoch seed in the training loop.
         """
         if isinstance(cfg_dataset, ListConfig):
             raise NotImplementedError("Support for the shuffle parameter needs to be added to use ConcatDataset.")
-            datasets = [config.instantiate(single_cfg_dataset, self.tokenizer) for single_cfg_dataset in cfg_dataset]
-            ds = ConcatDataset(datasets=datasets)
-            packed = False
+            # datasets = [config.instantiate(single_cfg_dataset, self.tokenizer) for single_cfg_dataset in cfg_dataset]
+            # ds = ConcatDataset(datasets=datasets)
+            # packed = False
         else:
             shuffle = cfg_dataset.pop("shuffle")
             ds = config.instantiate(cfg_dataset, self.tokenizer)
