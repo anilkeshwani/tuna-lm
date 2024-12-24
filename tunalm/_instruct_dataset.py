@@ -4,6 +4,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Union
 
+from sardalign.utils import dsu2pua
 from torchtune.data import Message
 from torchtune.data._utils import format_content_with_images, load_image
 from torchtune.datasets._packed import PackedDataset
@@ -12,7 +13,7 @@ from torchtune.modules.tokenizers import ModelTokenizer
 from torchtune.modules.transforms import Transform
 
 
-class InputOutputToMessages(Transform):
+class ASRInputOutputToMessages(Transform):
     """
     Message transform class that converts a single sample with "input" and "output" fields,
     (or equivalent fields specified in column_map) to user and assistant messages,
@@ -59,7 +60,7 @@ class InputOutputToMessages(Transform):
         messages = [
             Message(
                 role="user",
-                content=sample[self._column_map["input"]],
+                content="".join(map(dsu2pua, sample[self._column_map["input"]])),
                 masked=not self.train_on_input,
                 eot=True,
             ),
@@ -194,7 +195,7 @@ def instruct_dataset(
     Raises:
         ValueError: If ``packed=True`` and ``tokenizer.max_seq_len`` is not set.
     """
-    message_transform = InputOutputToMessages(
+    message_transform = ASRInputOutputToMessages(
         train_on_input=train_on_input,
         column_map=column_map,
         new_system_prompt=new_system_prompt,
