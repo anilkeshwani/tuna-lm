@@ -14,7 +14,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, modules, training, utils
 from torchtune.config._utils import _get_component_from_path
-from torchtune.data import padded_collate_packed
+from torchtune.data import padded_collate_packed, PromptTemplate
 from torchtune.datasets import ConcatDataset
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
@@ -26,6 +26,7 @@ from tqdm import tqdm
 
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
+from _asr_instruct_dataset import asr_instruct_dataset  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
 from utils import info_excepthook  # noqa: E402; local import
 
@@ -39,7 +40,7 @@ LOGGER = utils.get_logger("DEBUG")
 GLOBAL_STEP_KEY: str = "global_step"
 
 
-class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
+class SFTRecipe(FTRecipeInterface):
     """
     Full finetuning recipe for dense transformer-based LLMs such as Llama2. This recipe is optimized
     for single GPU training. Training on CPU is not supported.
@@ -244,7 +245,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
 
-        self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
+        # NOTE Added for ASR SFT
+        asr_sft_prompt_template = PromptTemplate({"user": ("English text: ", "\n---\English speech: ")})
+        self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(
+            cfg.tokenizer.path,
+            prompt_template=asr_sft_prompt_template,
+        )
 
         # setup_optimizer should take in ckpt_dict only if training is resumed from
         # checkpoint. Transforming the opt state dict is handled by this method
@@ -492,7 +498,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # packed = False
         else:
             shuffle = cfg_dataset.pop("shuffle")
-            ds = config.instantiate(cfg_dataset, self.tokenizer)
+            # custom asr_instruct_dataset function that allows passing ASRInputOutputToMessages as message_transform
+            ds = asr_instruct_dataset(cfg_dataset, self.tokenizer)
             packed = cfg_dataset.get("packed", False)
 
         if "left_pad_sequence" in collate_fn:
@@ -704,7 +711,7 @@ def recipe_main(cfg: DictConfig) -> None:
         - Overwritten by arguments from the command-line
     """
     config.log_config(recipe_name="FullFinetuneRecipeSingleDevice", cfg=cfg)
-    recipe = FullFinetuneRecipeSingleDevice(cfg=cfg)
+    recipe = SFTRecipe(cfg=cfg)
     recipe.setup(cfg=cfg)
     recipe.train()
     recipe.cleanup()
