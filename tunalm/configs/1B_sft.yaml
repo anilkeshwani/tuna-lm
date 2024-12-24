@@ -1,6 +1,7 @@
 # Experiment management
+base_model_name: Llama-3.2-1B-5000-dsus
 model_name: Llama-3.2-1B-5000-dsus-sft
-output_dir: ${experiments_root_dir}/${model_name}
+output_dir: ${experiments_root_dir}/${base_model_name}-sft
 extended_models_dir: /mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/
 experiments_root_dir: /mnt/scratch-artemis/anilkeshwani/experiments
 experiment_name: null # if null, set to W&B run name
@@ -30,7 +31,7 @@ n_dsus: 5000 # (int)
 # NOTE special_tokens removed - necessarily set dynamically based on tokenizer vocab size (i.e. when extended)
 # prompt_template set in recipe
 tokenizer:
-  path: ${extended_models_dir}/${model_name}/original/tokenizer.model
+  path: ${extended_models_dir}/${base_model_name}/original/tokenizer.model
   max_seq_len: null # set to 128000000 when packing? (max seq. length per `llama model describe -m Llama3.2-1B`)
 
 data:
@@ -50,12 +51,20 @@ data:
     packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
     # add_eos: # TODO do we need this?
 
-  # TODO add dev set
-  # dev:
-  #   ...
-
-# Evaluation
-eval_steps: ${save_steps}
+  # TODO amend dev set in line with changes to train
+  dev:
+    source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert # original; not the interleaved
+    split: dev
+    column_map:
+      input: speech_tokens
+      output: transcript
+    new_system_prompt: "You will act as an automatic speech recognition (ASR) system. Transcribe the speech tokens into English text."
+    train_on_input: True # NOTE set to True so the model learns from the text as well during SFT (prevent forgetting?)
+    # column: text
+    # TODO are the below used?
+    shuffle: True
+    packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
+    # add_eos: # TODO do we need this?
 
 seed: null
 
@@ -63,10 +72,9 @@ seed: null
 epochs: 5
 max_steps: null # if unset, set according to the number of epochs and the number of steps per epoch
 
-# TODO adjust batch size for SFT
-batch_size: 4 # effective batch size was 144 via bs=12 and grad. accum. 12 for TinyLlama
-
-gradient_accumulation_steps: 16
+# NOTE set batch size to 2 with grad. accum. steps of 32 for effective batch size of 64 - based on observed memory usage
+batch_size: 2 # effective batch size was 144 via bs=12 and grad. accum. 12 for TinyLlama
+gradient_accumulation_steps: 32
 optimizer:
   _component_: torch.optim.AdamW
   lr: 2e-5 # used 3e-5 for TinyLlama decaying to min LR of 3e-6
@@ -103,16 +111,19 @@ dtype: bf16
 # Checkpointing
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
-  checkpoint_dir: ${extended_models_dir}/${model_name}
+  checkpoint_dir: ${extended_models_dir}/${base_model_name}
   checkpoint_files: [hf_model_0001_0.pt] # TODO what's the base model for the CPT'd model? Which has min val loss?
   model_type: LLAMA3_2
-  output_dir: null # if null, set to ${experiments_root_dir}/${model_name}/${experiment_name}/${checkpoints}
+  output_dir: null # if null, set to ${experiments_root_dir}/${base_model_name}/${experiment_name}/${checkpoints}
   adapter_checkpoint: null
   recipe_checkpoint: null
   resume_from_checkpoint: False
   safe_serialization: False
 
-save_steps: 2 # 382 is approx. every hour given 1.7 iters/sec and 16 grad. accum. steps
+save_steps: 500 # 382 is approx. every hour given 1.7 iters/sec and 16 grad. accum. steps
+
+# Evaluation
+eval_steps: ${save_steps}
 
 # Logging
 metric_logger:

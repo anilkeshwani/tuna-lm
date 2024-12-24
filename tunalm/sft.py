@@ -28,11 +28,11 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).parent.resolve()))
 from _asr_instruct_dataset import asr_instruct_dataset  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
-from utils import info_excepthook  # noqa: E402; local import
+from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
 
 
 sys.excepthook = info_excepthook
-TERMINAL_WIDTH = os.get_terminal_size().columns
+TERMINAL_WIDTH = get_terminal_width()
 LOGGER = utils.get_logger("DEBUG")
 
 # Constants
@@ -499,7 +499,7 @@ class SFTRecipe(FTRecipeInterface):
         else:
             shuffle = cfg_dataset.pop("shuffle")
             # custom asr_instruct_dataset function that allows passing ASRInputOutputToMessages as message_transform
-            ds = asr_instruct_dataset(cfg_dataset, self.tokenizer)
+            ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)
             packed = cfg_dataset.get("packed", False)
 
         if "left_pad_sequence" in collate_fn:

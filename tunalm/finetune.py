@@ -27,11 +27,11 @@ from tqdm import tqdm
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
-from utils import info_excepthook  # noqa: E402; local import
+from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
 
 
 sys.excepthook = info_excepthook
-TERMINAL_WIDTH = os.get_terminal_size().columns
+TERMINAL_WIDTH = get_terminal_width()
 LOGGER = utils.get_logger("DEBUG")
 
 # Constants
