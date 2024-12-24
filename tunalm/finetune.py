@@ -268,6 +268,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self.sampler_train, self.data_train = self.setup_data(
             cfg_dataset=cfg.data.train,
             batch_size=cfg.batch_size,
+            # NOTE the collate fn gets the inputs already converted to integer IDs by the tokenizer
             collate_fn=cfg.get("collate_fn", "torchtune.data.padded_collate_sft"),
         )
 
