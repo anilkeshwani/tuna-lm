@@ -76,7 +76,7 @@ class ASRInputOutputToMessages(Transform):
         return {"messages": messages}
 
 
-def instruct_dataset(
+def asr_instruct_dataset(
     tokenizer: ModelTokenizer,
     *,
     source: str,
