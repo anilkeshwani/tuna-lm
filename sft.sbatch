@@ -7,5 +7,9 @@
 #SBATCH --partition a6000                   # Partition to be used
 #SBATCH --qos=gpu-medium                    # Quality of Service (QOS) to be used
 
+eval "$(conda shell.bash hook)"
 conda activate tunalm
-tune run tunalm/sft.py --config /tunalm/config/1B_sft.yaml
+conda env list
+echo "${PWD}"
+
+tune run tunalm/sft.py --config tunalm/configs/1B_sft.yaml
