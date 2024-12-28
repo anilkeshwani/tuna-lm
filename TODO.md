@@ -1,6 +1,8 @@
 # To Do
 
 - [ ] BUG: Re-run CPT "finetune.py" recipes without using add_eos: True - this shouldn't be appended for CPT (where we want continuations)
+- [ ] BUG: Save a symlink of the tokenizer, the config.json and the tokennizer_config.json at _every_ checkpoint event (in every checkpoint dir)
+    - allows us to use the checkpointer exposed method interfaces without manual hacks
 
 No textual data used for CPT. Options for CPT:
 
