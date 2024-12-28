@@ -618,7 +618,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     LOGGER.info(
                         f"Epoch {curr_epoch + 1:03d} | "
                         f"Iter {i:0{len(str(self.steps_per_epoch))}d} / {self.steps_per_epoch} | "
-                        f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "
+                        f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "  # TODO bad zero padding
                         f"Loss: {loss_to_log:.4f}"
                     )
 
@@ -633,7 +633,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                                 LOGGER.info(
                                     f"Epoch {curr_epoch + 1:03d} | "
                                     f"Iter {i:0{len(str(self.steps_per_epoch))}d} / {self.steps_per_epoch} | "
-                                    f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "
+                                    f"Global Step {self.global_step:0{len(str(self.steps_per_epoch))}d} | "  # TODO 0s
                                     f"Dev Batch {i_dev:0{len(str(len(self.data_dev)))}d} / {len(self.data_dev)} | "
                                     f"Dev Loss (batch): {dev_loss_batch.item():.4f}"
                                 )
