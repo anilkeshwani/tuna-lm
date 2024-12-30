@@ -1,5 +1,5 @@
 # Experiment management
-output_dir: ??? # user-specified at runtime
+output_dir: null # user-specified at runtime
 
 # Model Arguments
 model:
@@ -34,7 +34,7 @@ data:
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
-  checkpoint_dir: ??? # user-specified at runtime
+  checkpoint_dir: null # user-specified at runtime
   checkpoint_files: [hf_model_0001_0.pt]
   output_dir: ${output_dir}/checkpointer # TODO
   model_type: LLAMA3_2
@@ -51,7 +51,7 @@ seed: 1234
 # Tokenizer arguments (Llama3Tokenizer)
 tokenizer:
   # _component_
-  path: ??? # user-specified at runtime
+  path: null # user-specified at runtime
   max_seq_len: null
   prompt_template: null
 
