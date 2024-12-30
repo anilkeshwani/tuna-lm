@@ -24,12 +24,6 @@ base_vocab_size: 128000 # base vocabulary size Llama 3: 100k (tiktoken) + 28k (t
 n_special_tokens: 256 # (int) # hard-coded in the torchtune Llama 3 impl.
 n_dsus: 5000 # (int)
 
-# Tokenizer (Llama3Tokenizer)
-tokenizer:
-  path: ${extended_models_dir}/${model_name}/original/tokenizer.model
-  max_seq_len: null
-  prompt_template: null
-
 # Test Data - NOTE `shuffle` and `packed` are not supported for test inference
 data:
   test:
@@ -39,25 +33,37 @@ data:
     split: dev
     add_eos: True
 
-seed: null
-batch_size: 4
 
-compile: False # TODO remove if unused
-
-# Training environment
-device: cuda
-
-# Reduced precision
-dtype: bf16
-
-# Checkpointing
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: ${extended_models_dir}/${model_name}
   checkpoint_files: [hf_model_0001_0.pt]
+  output_dir: null # TODO
   model_type: LLAMA3_2
-  output_dir: null # if null, set to ${experiments_root_dir}/${model_name}/${experiment_name}/${checkpoints}
   adapter_checkpoint: null
   recipe_checkpoint: null
   resume_from_checkpoint: False
   safe_serialization: False
+
+batch_size: 4
+device: cuda
+dtype: bf16
+
+seed: 1234
+
+# Tokenizer arguments (Llama3Tokenizer)
+tokenizer:
+  # _component_
+  path: ${extended_models_dir}/${model_name}/original/tokenizer.model
+  max_seq_len: null
+  prompt_template: null
+
+# Generation arguments; defaults taken from gpt-fast
+prompt: "To say 'I am going on a trip' in French, you say"
+instruct_template: null
+chat_format: null
+max_new_tokens: 500
+temperature: 0.6 # 0.8 and 0.6 are popular values to try
+top_k: 300
+
+enable_kv_cache: True
