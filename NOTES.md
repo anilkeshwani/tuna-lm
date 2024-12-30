@@ -1,3 +1,9 @@
+# Changelog (salient changes only)
+
+- Between generation recipe provided by torchtune as my inference.py, I removed quantization
+    - see e.g. the changes in commit 23080203d6d4598291b6b0254cfc42a2533c5632
+
+
 ## Tokenizer Extension & Hugging Face Interoperability
 
 ### Minimal requirements for generation
