@@ -115,7 +115,7 @@ class ValidationOfflineRecipe:
             dataset=ds,
             batch_size=batch_size,
             sampler=sampler,
-            drop_last=True,  # dropping last avoids shape issues with compile + flex attention
+            drop_last=False,  # dropping last avoids shape issues with compile + flex attention
             collate_fn=(
                 partial(collate_fn, padding_idx=self.tokenizer.pad_id, ignore_idx=self.loss_fn.ignore_index)
                 if not packed
