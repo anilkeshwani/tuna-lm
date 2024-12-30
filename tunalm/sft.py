@@ -26,10 +26,9 @@ from tqdm import tqdm
 
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
+from asr import asr_instruct_dataset, ASR_SFT_PROMPT_TEMPLATE  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
 from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
-
-from tunalm.asr import asr_instruct_dataset, ASR_SFT_PROMPT_TEMPLATE  # noqa: E402; local import
 
 
 sys.excepthook = info_excepthook
