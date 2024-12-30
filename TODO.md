@@ -1,7 +1,13 @@
 # To Do
 
+- [ ] Compare inference via torchtune recipe to vLLM output
+- [ ] Check for any difference in inference outputs at bf16 vs fp32
+    - should be easy to run inference via vLLM as checkpoint should already be in HF-compliant format
+- [ ] add a separate config for ASR. Will require:
+    - alignment of LS {clean, other}
+    - provide these as HF datasets - specify "test" split
 - [ ] BUG: Re-run CPT "finetune.py" recipes without using add_eos: True - this shouldn't be appended for CPT (where we want continuations)
-- [ ] BUG: Save a symlink of the tokenizer, the config.json and the tokennizer_config.json at _every_ checkpoint event (in every checkpoint dir)
+- [ ] BUG: Save a symlink of the tokenizer, the config.json and the tokenizer_config.json at _every_ checkpoint event (in every checkpoint dir)
     - allows us to use the checkpointer exposed method interfaces without manual hacks
 
 No textual data used for CPT. Options for CPT:
@@ -37,7 +43,8 @@ No textual data used for CPT. Options for CPT:
 - [ ] write ASR concat style collator
 - [ ] compute ASR on validation as well - HF evaluate with normalizations
 - [ ] fix out dir vs ckpt dir - config JSON is written to  checkpoints/ dir
-- [ ] maybe save cfg and an instance variable?
+    - NOTE: This is fixed in the latest torchtune (v0.5.0; if not also earlier subversions).
+    - Therefore can pull from the upstream to fix call to save_config in checkpointer __init__ method
+- [ ] refactor (recipe): save cfg as an instance variable?
 - [ ] future: do we want to save only one recipe state; maybe for now we can remove the previous one?
-              relatively easy to incorporate into save_checkpoint method - track previous out dir and
-              remove recipe.pt
+    - relatively easy to incorporate into save_checkpoint method - track previous out dir and remove recipe.pt
