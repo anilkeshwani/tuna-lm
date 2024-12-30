@@ -154,6 +154,27 @@ class InferenceRecipe:
                     decoder_max_seq_len=prompt.numel() + cfg.max_new_tokens,
                 )
 
+        # since quantized model uses torch.compile to get speedup, it needs a warm up / prefill run
+        # to get the accurate performance measurement
+        if self._quantization_mode is not None:
+            LOGGER.info("Starting compilation to improve generation performance ...")
+            custom_generate_next_token = torch.compile(
+                generation.generate_next_token, mode="max-autotune", fullgraph=True
+            )
+            t0 = time.perf_counter()
+            _ = generation.generate(
+                model=self.model,
+                prompt=prompt,
+                max_generated_tokens=2,
+                temperature=cfg.temperature,
+                top_k=cfg.top_k,
+                stop_tokens=self.tokenizer.stop_tokens,
+                custom_generate_next_token=custom_generate_next_token,
+            )
+            t = time.perf_counter() - t0
+            LOGGER.info(f"Warmup run for quantized model takes: {t:.02f} sec")
+            self.model.reset_caches()
+
         t0 = time.perf_counter()
         generated_tokens, _ = generation.generate(
             model=self.model,
