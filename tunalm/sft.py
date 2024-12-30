@@ -39,6 +39,9 @@ LOGGER = utils.get_logger("DEBUG")
 # NOTE torchtune.training exports STEPS_KEY = "steps_run" # number of steps completed thus far - for PPO
 GLOBAL_STEP_KEY: str = "global_step"
 
+# ASR Prompt Template for supervised finetuning and inference
+ASR_SFT_PROMPT_TEMPLATE = PromptTemplate({"user": ("English text: ", "\n---\nEnglish speech: ")})
+
 
 class SFTRecipe(FTRecipeInterface):
     """
@@ -246,10 +249,9 @@ class SFTRecipe(FTRecipeInterface):
         )
 
         # NOTE Added for ASR SFT
-        asr_sft_prompt_template = PromptTemplate({"user": ("English text: ", "\n---\English speech: ")})
         self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(
             cfg.tokenizer.path,
-            prompt_template=asr_sft_prompt_template,
+            prompt_template=ASR_SFT_PROMPT_TEMPLATE,
         )
 
         # setup_optimizer should take in ckpt_dict only if training is resumed from
