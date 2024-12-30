@@ -14,7 +14,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, modules, training, utils
 from torchtune.config._utils import _get_component_from_path
-from torchtune.data import padded_collate_packed, PromptTemplate
+from torchtune.data import padded_collate_packed
 from torchtune.datasets import ConcatDataset
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
@@ -26,9 +26,10 @@ from tqdm import tqdm
 
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
-from _asr_instruct_dataset import asr_instruct_dataset  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
 from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
+
+from tunalm.asr import asr_instruct_dataset, ASR_SFT_PROMPT_TEMPLATE  # noqa: E402; local import
 
 
 sys.excepthook = info_excepthook
@@ -38,9 +39,6 @@ LOGGER = utils.get_logger("DEBUG")
 # Constants
 # NOTE torchtune.training exports STEPS_KEY = "steps_run" # number of steps completed thus far - for PPO
 GLOBAL_STEP_KEY: str = "global_step"
-
-# ASR Prompt Template for supervised finetuning and inference
-ASR_SFT_PROMPT_TEMPLATE = PromptTemplate({"user": ("English text: ", "\n---\nEnglish speech: ")})
 
 
 class SFTRecipe(FTRecipeInterface):

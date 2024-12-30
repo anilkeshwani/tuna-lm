@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Union
 
 from sardalign.utils import dsu2pua
-from torchtune.data import Message
+from torchtune.data import Message, PromptTemplate
 from torchtune.data._utils import format_content_with_images, load_image
 from torchtune.datasets._packed import PackedDataset
 from torchtune.datasets._sft import SFTDataset
@@ -215,3 +215,7 @@ def asr_instruct_dataset(
             raise ValueError("PackedDataset requires a max_seq_len to be set on the tokenizer.")
         return PackedDataset(ds, max_seq_len=tokenizer.max_seq_len)
     return ds
+
+
+# ASR Prompt Template for supervised finetuning and inference
+ASR_SFT_PROMPT_TEMPLATE = PromptTemplate({"user": ("English text: ", "\n---\nEnglish speech: ")})
