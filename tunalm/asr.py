@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Union
 
 from sardalign.utils import dsu2pua
-from torchtune.data import Message, PromptTemplate
+from torchtune.data import Message, PromptTemplate, Role
 from torchtune.data._utils import format_content_with_images, load_image
 from torchtune.datasets._packed import PackedDataset
 from torchtune.datasets._sft import SFTDataset
@@ -218,4 +218,5 @@ def asr_instruct_dataset(
 
 
 # ASR Prompt Template for supervised finetuning and inference
-ASR_SFT_PROMPT_TEMPLATE = PromptTemplate({"user": ("English text: ", "\n---\nEnglish speech: ")})
+ASR_SFT_PROMPT_DICT: dict[Role, tuple[str, str]] = {"user": ("English text: ", "\n---\nEnglish speech: ")}
+ASR_SFT_PROMPT_TEMPLATE = PromptTemplate(ASR_SFT_PROMPT_DICT)
