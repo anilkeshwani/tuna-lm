@@ -10,16 +10,16 @@ import torch
 from omegaconf import DictConfig, ListConfig
 from torch import Tensor
 from torch.utils.data import DataLoader, DistributedSampler
-from torchtune import config, generation, training, utils
+from torchtune import config, training, utils
 from torchtune.config._utils import _get_component_from_path
-from torchtune.data import ChatFormat, CROSS_ENTROPY_IGNORE_IDX, InstructTemplate, Message, padded_collate_sft
+from torchtune.data import ChatFormat, CROSS_ENTROPY_IGNORE_IDX, InstructTemplate, Message, padded_collate_sft, Role
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
 
 
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
-from _asr_instruct_dataset import asr_instruct_dataset  # noqa: E402; local import
+from asr import asr_instruct_dataset  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
 from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
 
@@ -71,8 +71,6 @@ class InferenceRecipe:
             raise NotImplementedError("ConcatDataset is not supported for inference. Please pass a single test set.")
         if cfg_dataset.get("packed") is not None:
             raise RuntimeError("Do not set packed for inference only.")
-        if "left_pad_sequence" in collate_fn:
-            raise RuntimeError("left_pad_sequence collator is only for inference.")
         if cfg_dataset.get("shuffle") is not None:
             raise RuntimeError("Do not set shuffle for inference only.")
         cfg_dataset.pop("shuffle")  # no such key in the datasets dataset builder config
@@ -94,57 +92,28 @@ class InferenceRecipe:
 
     def convert_prompt_to_tokens(
         self,
-        prompt: DictConfig | str,
-        chat_format: ChatFormat | None,
-        instruct_template: InstructTemplate | None,
-    ) -> list[Message]:
+        prompt: dict[Role, str],
+    ) -> list[int]:
         """
-        Either:
-        (1) a raw string is passed as the prompt, in which case we call tokenizer.encode directly, or
-        (2) a DictConfig is passed as the prompt. In this case there are three possibilities:
-            (a) an InstructTemplate is provided. Since instruct templates output a string, we will
-                call tokenizer.encode on the output of the instruct template.
-            (b) a ChatFormat is provided. Since chat formats output a list of messages, we will
-                call tokenizer.tokenize_messages on the output of the chat format.
-            (c) neither an InstructTemplate nor a ChatFormat is provided. In this case we will
-                convert the DictConfig to a list of messages and call tokenizer.tokenize_messages directly.
+        Convert the prompt string to a user message with optional system messages
+        and tokenize using the prompt template defined on the tokenizer.
         """
-
-        # Should only be chat-style prompt or instruct-style prompt
-        if chat_format and instruct_template:
-            raise ValueError("Cannot pass both chat format and instruct template for generation")
-
-        # If instruct template is provided, assert that the prompt is a DictConfig
-        # and apply it
-        if instruct_template:
-            if not isinstance(prompt, DictConfig):
-                raise ValueError("Cannot apply instruct template to raw string")
-            instruct_template = _get_component_from_path(instruct_template)
-            prompt = instruct_template.format(prompt)
-
-        # To hit this block, either the raw prompt is a string or an
-        # instruct template has been provided to convert it to a string
-        if isinstance(prompt, str):
-            return self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
-
-        # dict.items() will respect order for Python >= 3.7
-        else:
-            messages = [Message(role=k, content=v) for k, v in prompt.items()]
-            messages += [Message(role="assistant", content="")]
-            if chat_format:
-                chat_format = _get_component_from_path(chat_format)
-                messages = chat_format.format(messages)
-            return self.tokenizer.tokenize_messages(messages)[0]
+        messages = []
+        if "system" in prompt and prompt["system"] is not None:
+            messages.append(Message(role="system", content=prompt["system"]))
+        messages.extend(
+            [
+                Message(role="user", content=prompt["user"]),
+                Message(role="assistant", content=""),  # empty assistant message to kick-start generation
+            ]
+        )
+        return self.tokenizer({"messages": messages}, inference=True)["tokens"]
 
     @torch.inference_mode()
     def generate(self, cfg: DictConfig):
-        tokens = self.convert_prompt_to_tokens(
-            cfg.prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
-        )
+        tokens = self.convert_prompt_to_tokens(cfg.prompt)
         prompt = torch.tensor(tokens, dtype=torch.int, device=self.device)
-
         custom_generate_next_token = None
-
         # Ensure the cache is setup on the right device, with only as many tokens as we need
         if cfg.enable_kv_cache:
             with self.device:
@@ -155,7 +124,7 @@ class InferenceRecipe:
                 )
 
         t0 = time.perf_counter()
-        generated_tokens, _ = generation.generate(
+        generated_tokens, _ = generate(
             model=self.model,
             prompt=prompt,
             max_generated_tokens=cfg.max_new_tokens,
@@ -167,13 +136,10 @@ class InferenceRecipe:
         )
         generated_tokens = generated_tokens.tolist()
         t = time.perf_counter() - t0
-
         LOGGER.info(self.tokenizer.decode(generated_tokens[0]))
-
         model_size = sum(
             [p.numel() * p.dtype.itemsize for p in itertools.chain(self.model.parameters(), self.model.buffers())]
         )
-
         tokens_generated = len(generated_tokens[0]) - prompt.size(0)
         tokens_sec = tokens_generated / t
         LOGGER.info(f"Time for inference: {t:.02f} sec total, {tokens_sec:.02f} tokens/sec")
@@ -223,7 +189,7 @@ class InferenceRecipe:
             stop_tokens = [self.tokenizer.eos_id]
         prompts_ids: Tensor = torch.tensor([self.tokenizer.encode(prompt) for prompt in prompts]).to(self.device)
         self.model.eval()
-        output, logits = generation.generate(
+        output, logits = generate(
             self.model,
             prompts_ids,
             max_generated_tokens=max_generated_tokens,
