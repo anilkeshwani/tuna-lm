@@ -90,10 +90,7 @@ class InferenceRecipe:
         LOGGER.info(f"Test dataset and sampler initialized from {cfg_dataset.source}.")
         return sampler, dataloader
 
-    def convert_prompt_to_tokens(
-        self,
-        prompt: dict[Role, str],
-    ) -> list[int]:
+    def convert_prompt_to_tokens(self, prompt: dict[Role, str]) -> list[int]:
         """
         Convert the prompt string to a user message with optional system messages
         and tokenize using the prompt template defined on the tokenizer.
