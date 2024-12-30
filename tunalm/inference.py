@@ -12,20 +12,22 @@ from torch import Tensor
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, generation, training, utils
 from torchtune.config._utils import _get_component_from_path
-from torchtune.data import ChatFormat, InstructTemplate, Message, padded_collate_sft
+from torchtune.data import ChatFormat, CROSS_ENTROPY_IGNORE_IDX, InstructTemplate, Message, padded_collate_sft
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
 
 
 # TODO HACK to import extendllama3; remove when this is a package
 sys.path.append(str(Path(__file__).parent.resolve()))
+from _asr_instruct_dataset import asr_instruct_dataset  # noqa: E402; local import
 from extendllama3 import setup_llama3_tokenizer  # noqa: E402; local import
-from utils import info_excepthook, get_terminal_width  # noqa: E402; local import
+from utils import get_terminal_width, info_excepthook  # noqa: E402; local import
 
 
 sys.excepthook = info_excepthook
 TERMINAL_WIDTH = get_terminal_width()
 LOGGER = utils.get_logger("DEBUG")
+CROSS_ENTROPY_IGNORE_IDX: int  # NOTE we import torchtune default x-e ignore idx value (-100) from torchtune.data
 
 
 class InferenceRecipe:
@@ -65,20 +67,27 @@ class InferenceRecipe:
     def setup_test_data(
         self, cfg_dataset: DictConfig, batch_size: int, collate_fn: Callable
     ) -> tuple[DistributedSampler, DataLoader]:
-        if cfg_dataset.get("shuffle") is not None:
-            raise RuntimeError("Do not set shuffle for inference only.")
-        if cfg_dataset.get("packed") is not None:
-            raise RuntimeError("Do not set packed for inference only.")
         if isinstance(cfg_dataset, ListConfig):
             raise NotImplementedError("ConcatDataset is not supported for inference. Please pass a single test set.")
-        ds = config.instantiate(cfg_dataset, tokenizer=self.tokenizer)
+        if cfg_dataset.get("packed") is not None:
+            raise RuntimeError("Do not set packed for inference only.")
+        if "left_pad_sequence" in collate_fn:
+            raise RuntimeError("left_pad_sequence collator is only for inference.")
+        if cfg_dataset.get("shuffle") is not None:
+            raise RuntimeError("Do not set shuffle for inference only.")
+        cfg_dataset.pop("shuffle")  # no such key in the datasets dataset builder config
+        ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)  # custom; message_transform=ASRInputOutputToMessages
         sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=False, seed=0)
         dataloader = DataLoader(
             dataset=ds,
             batch_size=batch_size,
             sampler=sampler,
-            drop_last=False,
-            collate_fn=partial(collate_fn, padding_idx=self.tokenizer.pad_id, ignore_idx=None),
+            drop_last=False,  # dropping last avoids shape issues with compile + flex attention; TODO any issues?
+            collate_fn=partial(
+                collate_fn,
+                padding_idx=self.tokenizer.pad_id,
+                ignore_idx=CROSS_ENTROPY_IGNORE_IDX,  # NOTE torchtune.data default crossentropy ignore idx
+            ),
         )
         LOGGER.info(f"Test dataset and sampler initialized from {cfg_dataset.source}.")
         return sampler, dataloader
