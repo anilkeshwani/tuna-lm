@@ -18,7 +18,8 @@ model:
 
 base_vocab_size: 128000 # base vocabulary size Llama 3: 100k (tiktoken) + 28k (targeting multilingual support)
 n_special_tokens: 256 # (int) # hard-coded in the torchtune Llama 3 impl.
-n_dsus: 5000 # (int)
+# n_dsus: 5000
+n_dsus: 0
 
 # Test data
 # NOTE `shuffle` and `packed` are not supported for test inference
@@ -35,7 +36,7 @@ data:
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: null # user-specified at runtime
-  checkpoint_files: [hf_model_0001_0.pt]
+  checkpoint_files: [model.safetensors]
   output_dir: ${output_dir}/checkpointer # TODO
   model_type: LLAMA3_2
   adapter_checkpoint: null
@@ -60,7 +61,7 @@ prompt:
   system: null
   user: "Tell me a joke."
 max_new_tokens: 500
-temperature: 0.6 # 0.8 and 0.6 are popular values to try
+temperature: 0.0 # 0.8 and 0.6 are popular values to try
 top_k: 300
 
 enable_kv_cache: True
