@@ -6,7 +6,7 @@
 git submodule update --init --recursive &&
     conda create -y --name tunalm python=3.10.6 &&
     conda activate tunalm &&
-    pip install -r requirements.txt &&
+    pip install -e .["dev"] &&
     pip install --no-deps -e ./submodules/speech-text-alignment
 ```
 
