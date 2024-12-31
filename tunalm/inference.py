@@ -38,13 +38,15 @@ class InferenceRecipe:
         self.seed = training.set_seed(seed=cfg.seed)  # TODO do we need to save the seed as an attribute?
 
     def setup(self, cfg: DictConfig) -> None:
+        Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
         checkpointer = config.instantiate(cfg.checkpointer)  # no need to persist the checkpointer
         ckpt_dict = checkpointer.load_checkpoint()
         # self.compile = cfg.compile  # TODO support compilation; remove if not persisted after init
+        self.compile = False  # TODO provisional
         assert cfg.model.vocab_size is None, "Do not set vocab_size explicitly. It is inferred dynamically given n_dsus"
         cfg.model.vocab_size = cfg.base_vocab_size + cfg.n_special_tokens + cfg.n_dsus
         self.model = self.setup_model(
-            cfg_model=cfg.model, compile_model=cfg.compile, model_state_dict=ckpt_dict[training.MODEL_KEY]
+            cfg_model=cfg.model, compile_model=self.compile, model_state_dict=ckpt_dict[training.MODEL_KEY]
         )
         self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
         # TODO Ensure the eos token is not added - this is a generation script!
@@ -57,8 +59,8 @@ class InferenceRecipe:
     ) -> TransformerDecoder:
         with training.set_default_dtype(self.dtype), self.device:
             model = config.instantiate(cfg_model)
-        if compile_model:
-            training.compile_model(model)
+        # if compile_model:
+        #     training.compile_model(model)
         model.load_state_dict(model_state_dict)
         training.validate_expected_param_dtype(model.named_parameters(), dtype=self.dtype)
         LOGGER.info(f"Model is initialized with precision {self.dtype}.")
@@ -71,9 +73,8 @@ class InferenceRecipe:
             raise NotImplementedError("ConcatDataset is not supported for inference. Please pass a single test set.")
         if cfg_dataset.get("packed") is not None:
             raise RuntimeError("Do not set packed for inference only.")
-        if cfg_dataset.get("shuffle") is not None:
+        if "shuffle" in cfg_dataset.keys():
             raise RuntimeError("Do not set shuffle for inference only.")
-        cfg_dataset.pop("shuffle")  # no such key in the datasets dataset builder config
         ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)  # custom; message_transform=ASRInputOutputToMessages
         sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=False, seed=0)
         dataloader = DataLoader(
