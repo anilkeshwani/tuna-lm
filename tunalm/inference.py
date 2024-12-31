@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, CROSS_ENTROPY_IGNORE_IDX, InstructTemplate, Message, padded_collate_sft, Role
+from torchtune.datasets import text_completion_dataset
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
 
@@ -71,8 +72,16 @@ class InferenceRecipe:
         if cfg_dataset.get("packed") is not None:
             raise RuntimeError("Do not set packed for inference only.")
         if "shuffle" in cfg_dataset.keys():
-            raise RuntimeError("Do not set shuffle for inference only.")
-        ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)  # custom; message_transform=ASRInputOutputToMessages
+            raise RuntimeError("Do not set shuffle for inference.")
+
+        # TODO this block is a temporary HACK - either API or impl. should be cleaner / more consistent
+        if _get_component_from_path(cfg_dataset._component_) is text_completion_dataset:
+            ds = config.instantiate(cfg_dataset, self.tokenizer)
+        else:
+            # custom dataset instantiation wrapper function; with message_transform=ASRInputOutputToMessages
+            ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)
+        # TODO end of temporary HACK
+
         sampler = DistributedSampler(ds, num_replicas=1, rank=0, shuffle=False, seed=0)
         dataloader = DataLoader(
             dataset=ds,
