@@ -3,4 +3,4 @@ torchvision
 torchao
 wandb
 tiktoken==0.8.0
-git+https://github.com/pytorch/torchtune.git@7d29c211#egg=torchtune
+torchtune @ git+https://github.com/pytorch/torchtune.git@7d29c211#egg=torchtune
