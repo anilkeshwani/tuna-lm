@@ -57,3 +57,41 @@ tune run full_finetune_single_device \
 
 > [!NOTE]  
 > This config works only for training on single device.
+
+## Inference
+
+### Interactive or Manual Generation
+
+Uses the `prompt` field in the inference YAML config to produce a prompt of type `dict[Role, str]` supplied to `convert_prompt_to_tokens` which is passed to the `generate` method
+
+```yaml
+prompt:
+  system: null
+  user: "Tell me a joke."
+```
+
+Example calls:
+
+```bash
+tune run tunalm/inference.py --config tunalm/configs_1B/inference.yaml \
+  output_dir="./output_dir" \
+  checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382' \
+  tokenizer.path='/mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/original/tokenizer.model'
+```
+
+```bash
+tune run tunalm/inference.py --config tunalm/configs_1B/inference.yaml \
+  output_dir="./output_dir" \
+  checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/models/base/torchtune/Llama-3.2-1B-reference' \
+  tokenizer.path='/mnt/scratch-artemis/anilkeshwani/models/base/torchtune/Llama-3.2-1B-reference/original/tokenizer.model'
+```
+
+### Batch Inference
+
+Passes a dataset to the `setup_test_data` method which in turn is passed to the `inference` method, which performs batch generation. 
+
+Example calls:
+
+```bash
+...
+```
