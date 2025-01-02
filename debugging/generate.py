@@ -11,11 +11,13 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 from omegaconf import DictConfig
 from torch import nn
-
 from torchtune import config, generation, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, InstructTemplate, Message
 from torchtune.training import FullModelTorchTuneCheckpointer
+
+from tunalm.extendllama3 import setup_llama3_tokenizer
+
 
 logger = utils.get_logger("DEBUG")
 
@@ -71,7 +73,8 @@ class InferenceRecipe:
             model_cfg=cfg.model,
             model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
-        self._tokenizer = config.instantiate(cfg.tokenizer)
+        # self._tokenizer = config.instantiate(cfg.tokenizer)
+        self._tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
 
     def _setup_model(
         self,
@@ -91,9 +94,7 @@ class InferenceRecipe:
             model.load_state_dict(model_state_dict)
 
         # Validate model was loaded in with the expected dtype.
-        training.validate_expected_param_dtype(
-            model.named_parameters(), dtype=self._dtype
-        )
+        training.validate_expected_param_dtype(model.named_parameters(), dtype=self._dtype)
         logger.info(f"Model is initialized with precision {self._dtype}.")
 
         return model
@@ -118,9 +119,7 @@ class InferenceRecipe:
 
         # Should only be chat-style prompt or instruct-style prompt
         if chat_format and instruct_template:
-            raise ValueError(
-                "Cannot pass both chat format and instruct template for generation"
-            )
+            raise ValueError("Cannot pass both chat format and instruct template for generation")
 
         # If instruct template is provided, assert that the prompt is a DictConfig
         # and apply it
@@ -200,19 +199,12 @@ class InferenceRecipe:
         logger.info(self._tokenizer.decode(generated_tokens[0]))
 
         model_size = sum(
-            [
-                p.numel() * p.dtype.itemsize
-                for p in itertools.chain(
-                    self._model.parameters(), self._model.buffers()
-                )
-            ]
+            [p.numel() * p.dtype.itemsize for p in itertools.chain(self._model.parameters(), self._model.buffers())]
         )
 
         tokens_generated = len(generated_tokens[0]) - prompt.size(0)
         tokens_sec = tokens_generated / t
-        logger.info(
-            f"Time for inference: {t:.02f} sec total, {tokens_sec:.02f} tokens/sec"
-        )
+        logger.info(f"Time for inference: {t:.02f} sec total, {tokens_sec:.02f} tokens/sec")
         logger.info(f"Bandwidth achieved: {model_size * tokens_sec / 1e9:.02f} GB/s")
         logger.info(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
