@@ -1,8 +1,6 @@
 # Debugging
 
-### My inference script ("recipe")
-
-tune run tunalm/modern_inference.py
+### Inference with extended CPT'd model
 
 ```
 tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
@@ -23,7 +21,7 @@ INFO:torchtune.utils._logging:Bandwidth achieved: 140.12 GB/s
 INFO:torchtune.utils._logging:Memory used: 2.86 GB
 ```
 
-### Inference with extended CPT'd model
+#### Example output before switching to using the tunalm environment and modifying the generation script to use the custom Llama 3 tokenizer
 
 ```
 tune run generate.py --config ./working_configs/extended_cptd.yaml

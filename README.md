@@ -87,33 +87,25 @@ tune run full_finetune_single_device \
 
 ## Inference
 
-### Interactive or Manual Generation
+Inference runs via two scripts:
+1. generate_sample.py: Manual or semi-interactive generation for a single sample. At the time of writing, this is effectively a continuation
+2. inference.py: Batch, non-interactive generation from a dataset. Used for systematic evaluation
 
-Uses the `prompt` field in the inference YAML config to produce a prompt of type `dict[Role, str]` supplied to `convert_prompt_to_tokens` which is passed to the `generate` method
+### Single Sample Generation via generate_sample.py
 
-```yaml
-prompt:
-  system: null
-  user: "Tell me a joke."
+Example calls to generate continuations from the extended Llama 3.2 1B model with continued pre-training:
+
+```
+tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
 ```
 
-Example calls:
+Another checkpoint:
 
-```bash
-tune run tunalm/inference.py --config tunalm/configs_1B/inference.yaml \
-  output_dir="./output_dir" \
-  checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382' \
-  tokenizer.path='/mnt/scratch-artemis/anilkeshwani/models/extended/torchtune/Llama-3.2-1B-5000-dsus/original/tokenizer.model'
+```
+tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-053862/' checkpointer.checkpoint_files='[hf_model_0001_1.pt]'
 ```
 
-```bash
-tune run tunalm/inference.py --config tunalm/configs_1B/inference.yaml \
-  output_dir="./output_dir" \
-  checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/models/base/torchtune/Llama-3.2-1B-reference' \
-  tokenizer.path='/mnt/scratch-artemis/anilkeshwani/models/base/torchtune/Llama-3.2-1B-reference/original/tokenizer.model'
-```
-
-### Batch Inference
+### Batch Inference via inference.py
 
 Passes a dataset to the `setup_test_data` method which in turn is passed to the `inference` method, which performs batch generation. 
 
