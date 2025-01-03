@@ -20,7 +20,7 @@ model:
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
-  checkpoint_dir: /mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382
+  checkpoint_dir: ???
   checkpoint_files: [hf_model_0001_0.pt]
   output_dir: ./output_dir
   model_type: LLAMA3

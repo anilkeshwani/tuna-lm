@@ -4,6 +4,25 @@
 
 tune run tunalm/modern_inference.py
 
+```
+tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
+```
+
+```
+tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-053862/' checkpointer.checkpoint_files='[hf_model_0001_1.pt]'
+```
+
+```
+What are some interesting sites to visit in the Bay Area?   1 Response to some of the most interesting places in the bay area i found when i was in the bay area two interesting places were the golden gate and the Alcatraz island the golden gate is about 30 miles north of san francisco it is a very large arch that when it was built in the 1800s it was the strongest arch in the world the only thing that made it more interesting was that the british sent over the largest fleet of ships to ever win sail and a big part of it was our ancestors the
+french canadian we are the people that built the golden gate they were so great that they could build a gate in the water to protect the people who lived there from the british 2 and when the indian fought back by killing the british that we sent the french canadian to the california mission to punish the indian and the british the mission was a great place to visit i found the redwoods which were the largest trees in the world and the sycamores which were the largest trees in the world they are some of the best trees that i have ever seen they have the highest branches and the biggest roots
+```
+
+```
+INFO:torchtune.utils._logging:Time for inference: 4.26 sec total, 54.04 tokens/sec
+INFO:torchtune.utils._logging:Bandwidth achieved: 140.12 GB/s
+INFO:torchtune.utils._logging:Memory used: 2.86 GB
+```
+
 ### Inference with extended CPT'd model
 
 ```
