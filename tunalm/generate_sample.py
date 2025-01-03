@@ -11,12 +11,12 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 from omegaconf import DictConfig
 from torch import nn
+from tunalm.extendllama3 import setup_llama3_tokenizer
+
 from torchtune import config, generation, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, InstructTemplate, Message
 from torchtune.training import FullModelTorchTuneCheckpointer
-
-from tunalm.extendllama3 import setup_llama3_tokenizer
 
 
 logger = utils.get_logger("DEBUG")
@@ -102,9 +102,10 @@ class InferenceRecipe:
     def convert_prompt_to_tokens(
         self,
         prompt: Union[DictConfig, str],
-        chat_format: Optional[ChatFormat],
-        instruct_template: Optional[InstructTemplate],
-    ) -> List[Message]:
+        chat_format: ChatFormat | None,
+        instruct_template: InstructTemplate | None,
+        add_end_tokens: bool = False,
+    ) -> list[Message] | list[int]:
         """
         Either:
         (1) a raw string is passed as the prompt, in which case we call tokenizer.encode directly, or
@@ -127,6 +128,7 @@ class InferenceRecipe:
             if not isinstance(prompt, DictConfig):
                 raise ValueError("Cannot apply instruct template to raw string")
             instruct_template = _get_component_from_path(instruct_template)
+            assert instruct_template is not None
             prompt = instruct_template.format(prompt)
 
         # To hit this block, either the raw prompt is a string or an
@@ -140,8 +142,10 @@ class InferenceRecipe:
             messages += [Message(role="assistant", content="")]
             if chat_format:
                 chat_format = _get_component_from_path(chat_format)
+                assert chat_format is not None
                 messages = chat_format.format(messages)
-            return self._tokenizer.tokenize_messages(messages)[0]
+            tokens, mask = self._tokenizer.tokenize_messages(messages, add_end_tokens=add_end_tokens)
+            return tokens
 
     @torch.inference_mode()
     def generate(self, cfg: DictConfig):
