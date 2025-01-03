@@ -10,16 +10,17 @@ import torch
 from omegaconf import DictConfig, ListConfig
 from torch import Tensor
 from torch.utils.data import DataLoader, DistributedSampler
+from tunalm.asr import asr_instruct_dataset
+from tunalm.extendllama3 import setup_llama3_tokenizer
+from tunalm.utils import get_terminal_width, info_excepthook
+
 from torchtune import config, training, utils
+from torchtune.training import FullModelHFCheckpointer
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, CROSS_ENTROPY_IGNORE_IDX, InstructTemplate, Message, padded_collate_sft, Role
 from torchtune.datasets import text_completion_dataset
 from torchtune.generation import generate
 from torchtune.modules import TransformerDecoder
-
-from tunalm.asr import asr_instruct_dataset
-from tunalm.extendllama3 import setup_llama3_tokenizer
-from tunalm.utils import get_terminal_width, info_excepthook
 
 
 sys.excepthook = info_excepthook
@@ -29,22 +30,43 @@ CROSS_ENTROPY_IGNORE_IDX: int  # NOTE we import torchtune default x-e ignore idx
 
 
 class InferenceRecipe:
+    """
+    Recipe for generating tokens from a dense Transformer-based LLM.
+
+    Currently this recipe supports single-GPU generation only. Speculative
+    decoding is not supported.
+
+    For more details on how to use this recipe for generation, please see our
+    tutorial: https://pytorch.org/torchtune/main/tutorials/e2e_flow.html#generation
+
+    For using this recipe with a quantized model, please the following section of
+    the above tutorial:
+    https://pytorch.org/torchtune/main/tutorials/e2e_flow.html#speeding-up-generation-using-quantization
+    """
+
     def __init__(self, cfg: DictConfig) -> None:
         self.device = utils.get_device(device=cfg.device)
         self.dtype = training.get_dtype(dtype=cfg.dtype, device=self.device)
+
+        # NOTE Removed quantization setup; not used for now
         # self.output_dir = cfg.output_dir  # TODO where is this used? does the logger *actually* use it?
+
         self.seed = training.set_seed(seed=cfg.seed)  # TODO do we need to save the seed as an attribute?
 
     def setup(self, cfg: DictConfig) -> None:
         Path(cfg.checkpointer.output_dir).mkdir(parents=True, exist_ok=True)
-        checkpointer = config.instantiate(cfg.checkpointer)  # no need to persist the checkpointer
+        checkpointer:  = config.instantiate(cfg.checkpointer)  # no need to persist the checkpointer
         ckpt_dict = checkpointer.load_checkpoint()
+
         # self.compile = cfg.compile  # TODO support compilation; remove if not persisted after init
         self.compile = False  # TODO provisional
+
         assert cfg.model.vocab_size is None, "Do not set vocab_size explicitly. It is inferred dynamically given n_dsus"
         cfg.model.vocab_size = cfg.base_vocab_size + cfg.n_special_tokens + cfg.n_dsus
         self.model = self.setup_model(
-            cfg_model=cfg.model, compile_model=self.compile, model_state_dict=ckpt_dict[training.MODEL_KEY]
+            cfg_model=cfg.model,
+            # compile_model=self.compile,
+            model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
         self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(cfg.tokenizer.path)
         # TODO Ensure the eos token is not added - this is a generation script!
@@ -53,12 +75,17 @@ class InferenceRecipe:
         )
 
     def setup_model(
-        self, cfg_model: DictConfig, compile_model: bool, model_state_dict: dict[str, Any]
+        self,
+        cfg_model: DictConfig,
+        # compile_model: bool,  # NOTE removed compilation; for now
+        model_state_dict: dict[str, Any],
     ) -> TransformerDecoder:
         with training.set_default_dtype(self.dtype), self.device:
             model = config.instantiate(cfg_model)
+
         # if compile_model:
         #     training.compile_model(model)
+
         model.load_state_dict(model_state_dict)
         training.validate_expected_param_dtype(model.named_parameters(), dtype=self.dtype)
         LOGGER.info(f"Model is initialized with precision {self.dtype}.")
