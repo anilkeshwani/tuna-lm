@@ -96,13 +96,13 @@ Inference runs via two scripts:
 Example calls to generate continuations from the extended Llama 3.2 1B model with continued pre-training:
 
 ```
-tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
+tune run tunalm/generate_sample.py --config tunalm/configs_inference/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
 ```
 
 Another checkpoint:
 
 ```
-tune run generate.py --config ./working_configs/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-053862/' checkpointer.checkpoint_files='[hf_model_0001_1.pt]'
+tune run tunalm/generate_sample.py --config tunalm/configs_inference/extended_cptd.yaml checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-053862/' checkpointer.checkpoint_files='[hf_model_0001_1.pt]'
 ```
 
 ### Batch Inference via inference.py
