@@ -43,7 +43,7 @@ checkpointer:
 
 device: cuda
 dtype: bf16
-batch_size: 4
+batch_size: 1
 
 # reproducibility
 seed: 1234
@@ -54,9 +54,9 @@ tokenizer:
   max_seq_len: null # set to 128000000 when packing? (max seq. length per `llama model describe -m Llama3.2-1B`)
 
 # Generation arguments
-max_new_tokens: 500
-temperature: 0.8 # 0.8 and 0.6 are popular values to try
+max_new_tokens: 150
+temperature: 0.0
 top_k: 300
 
-enable_kv_cache: True
+enable_kv_cache: False
 # quantizer: null # NOTE we don't support this for now
