@@ -112,5 +112,7 @@ Passes a dataset to the `setup_test_data` method which in turn is passed to the 
 Example calls:
 
 ```bash
-...
+tune run tunalm/inference_asr.py \
+    --config tunalm/configs_inference/inference_asr.yaml \
+    checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
 ```
