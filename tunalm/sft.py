@@ -245,7 +245,9 @@ class SFTRecipe(FTRecipeInterface):
         # NOTE Added for ASR SFT
         self.tokenizer, special_tokens_dynamic = setup_llama3_tokenizer(
             cfg.tokenizer.path,
+            max_seq_len=cfg.tokenizer.max_seq_len,
             prompt_template=ASR_SFT_PROMPT_TEMPLATE,
+            verbose=True,
         )
 
         # setup_optimizer should take in ckpt_dict only if training is resumed from
