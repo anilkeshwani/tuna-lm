@@ -45,11 +45,9 @@ data:
       output: transcript
     new_system_prompt: "You will act as an automatic speech recognition (ASR) system. Transcribe the speech tokens into English text."
     train_on_input: True # NOTE set to True so the model learns from the text as well during SFT (prevent forgetting?)
-    # column: text
-    # TODO are the below used?
     shuffle: True
     packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
-    # add_eos: # TODO do we need this?
+    inference: False
 
   # TODO amend dev set in line with changes to train
   dev:
