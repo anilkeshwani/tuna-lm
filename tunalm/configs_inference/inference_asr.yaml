@@ -1,0 +1,62 @@
+# Data (Test) - NOTE we use the asr_instruct_dataset (custom) instead of torchtune.datasets.instruct_dataset
+data:
+  source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert # plain aligned data (not interleaved)
+  split: dev
+  column_map:
+    input: speech_tokens
+    output: transcript
+  new_system_prompt: "You will act as an automatic speech recognition (ASR) system. Transcribe the speech tokens into English text."
+  train_on_input: True # NOTE set to True so the model learns from the text as well during SFT (prevent forgetting?)
+  packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
+  inference: True
+
+# Model arguments
+model:
+  _component_: torchtune.models.llama3_2.llama3_2
+  vocab_size: null
+  num_layers: 16
+  num_heads: 32
+  num_kv_heads: 8
+  embed_dim: 2048
+  max_seq_len: 131072
+  intermediate_dim: 8192
+  attn_dropout: 0.0
+  norm_eps: 1e-5
+  rope_base: 500_000
+  scale_factor: 32
+
+base_vocab_size: 128000 # base vocab size; Llama 3: 100k (tiktoken) + 28k (targeting multilingual support)
+n_special_tokens: 256
+n_dsus: 5000
+
+checkpointer:
+  _component_: torchtune.training.FullModelHFCheckpointer
+  checkpoint_dir: ???
+  checkpoint_files: [hf_model_0001_0.pt]
+  output_dir: ./output_dir
+  model_type: LLAMA3_2 # NOTE replaced LLAMA3
+  # additional checkpointer arguments
+  adapter_checkpoint: null
+  recipe_checkpoint: null
+  resume_from_checkpoint: False
+  safe_serialization: False
+
+device: cuda
+dtype: bf16
+batch_size: 4
+
+# reproducibility
+seed: 1234
+
+# Tokenizer - NOTE we use setup_llama3_tokenizer -> Llama3Tokenizer; prompt_template set in recipe
+tokenizer:
+  path: /mnt/scratch-artemis/anilkeshwani/models/extended/Llama-3.2-1B-5000-dsus/original/tokenizer.model
+  max_seq_len: null # set to 128000000 when packing? (max seq. length per `llama model describe -m Llama3.2-1B`)
+
+# Generation arguments
+max_new_tokens: 500
+temperature: 0.8 # 0.8 and 0.6 are popular values to try
+top_k: 300
+
+enable_kv_cache: True
+# quantizer: null # NOTE we don't support this for now
