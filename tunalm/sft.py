@@ -489,13 +489,14 @@ class SFTRecipe(FTRecipeInterface):
         NOTE The sampler is both passed in to defined the dataloader and returned for purpose of
         setting epoch seed in the training loop.
         """
+        shuffle = cfg_dataset.pop("shuffle")
+
         if isinstance(cfg_dataset, ListConfig):
-            raise NotImplementedError("Support for the shuffle parameter needs to be added to use ConcatDataset.")
+            raise NotImplementedError("Support for dataset concatenation not implemented.")
             # datasets = [config.instantiate(single_cfg_dataset, self.tokenizer) for single_cfg_dataset in cfg_dataset]
             # ds = ConcatDataset(datasets=datasets)
             # packed = False
         else:
-            shuffle = cfg_dataset.pop("shuffle")
             # custom asr_instruct_dataset function that allows passing ASRInputOutputToMessages as message_transform
             ds = asr_instruct_dataset(self.tokenizer, **cfg_dataset)
             packed = cfg_dataset.get("packed", False)
