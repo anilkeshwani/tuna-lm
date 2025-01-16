@@ -378,5 +378,5 @@ def asr_instruct_dataset(
 
 
 # ASR Prompt Template for supervised finetuning and inference
-ASR_SFT_PROMPT_DICT: dict[Role, tuple[str, str]] = {"user": ("English text: ", "\n---\nEnglish speech: ")}
+ASR_SFT_PROMPT_DICT: dict[Role, tuple[str, str]] = {"user": ("English speech: ", "\n---\nEnglish text: ")}
 ASR_SFT_PROMPT_TEMPLATE = PromptTemplate(ASR_SFT_PROMPT_DICT)
