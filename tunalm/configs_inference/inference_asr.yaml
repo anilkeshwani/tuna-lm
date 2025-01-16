@@ -1,10 +1,12 @@
+output_dir: /mnt/scratch-artemis/anilkeshwani/tuna-lm/output/${data.source}/${data.split}
+
 # Data (Test) - NOTE we use the asr_instruct_dataset (custom) instead of torchtune.datasets.instruct_dataset
 data:
-  source: anilkeshwani/MLS_english_train_strat_sample_aligned_hubert # plain aligned data (not interleaved)
-  split: dev
+  source: anilkeshwani/LibriSpeech_aligned_hubert # plain aligned data (not interleaved)
+  split: test.clean
   column_map:
     input: speech_tokens
-    output: transcript
+    output: text
   new_system_prompt: "You will act as an automatic speech recognition (ASR) system. Transcribe the speech tokens into English text."
   train_on_input: True # NOTE set to True so the model learns from the text as well during SFT (prevent forgetting?)
   packed: False # packing performed a priori at training time and leads to CPU RAM overflow for e.g. MLS interleaved
@@ -33,7 +35,7 @@ checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: ???
   checkpoint_files: [hf_model_0001_0.pt]
-  output_dir: ./output_dir
+  output_dir: ${output_dir}/checkpointer
   model_type: LLAMA3_2 # NOTE replaced LLAMA3
   # additional checkpointer arguments
   adapter_checkpoint: null
