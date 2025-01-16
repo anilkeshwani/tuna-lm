@@ -109,10 +109,22 @@ tune run tunalm/generate_sample.py --config tunalm/configs_inference/extended_cp
 
 Passes a dataset to the `setup_test_data` method which in turn is passed to the `inference` method, which performs batch generation. 
 
-Example calls:
+#### Example calls
+
+CPT-only ckpt:
 
 ```bash
 tune run tunalm/inference_asr.py \
     --config tunalm/configs_inference/inference_asr.yaml \
-    checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
+    checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382' \
+    output_dir='./outputs/Llama-3.2-1B-5000-dsus/playful-morning-102-id_rq5tmfca/checkpoints/global-step-000382'
+```
+
+SFT-only ckpt:
+
+```bash
+tune run tunalm/inference_asr.py \
+    --config tunalm/configs_inference/inference_asr.yaml \
+    checkpointer.checkpoint_dir='/mnt/scratch-artemis/anilkeshwani/experiments/Llama-3.2-1B-5000-dsus-sft/avid-wind-123-id_xoafid42/checkpoints/global-step-006500' \
+    output_dir='outputs/Llama-3.2-1B-5000-dsus-sft/avid-wind-123-id_xoafid42/checkpoints/global-step-006500'
 ```
