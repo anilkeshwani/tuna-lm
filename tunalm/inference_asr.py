@@ -1,4 +1,5 @@
 import itertools
+import json
 import os
 import sys
 import time
@@ -7,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import torch
-from omegaconf import DictConfig, ListConfig
+from omegaconf import DictConfig, ListConfig, OmegaConf
 from torch import Tensor
 from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, training, utils
@@ -82,6 +83,10 @@ class InferenceRecipe:
             cfg_dataset=cfg.data, batch_size=cfg.batch_size, collate_fn=padded_collate_sft
         )
 
+        with open(Path(cfg.output_dir) / "config.yaml", "w") as f:  # TODO revert to "w" mode; defensive
+            OmegaConf.save(cfg, f, resolve=True)
+        LOGGER.info(f"Config saved to {cfg.output_dir}.")
+
     def setup_model(
         self,
         cfg_model: DictConfig,
@@ -130,7 +135,7 @@ class InferenceRecipe:
         for i, batch in tqdm(enumerate(self.data_test), total=len(self.data_test)):
             t_start = time.perf_counter()
             utils.batch_to_device(batch, self.device)
-            prompt = batch["tokens"]
+            prompt: Tensor = batch["tokens"]
             # num_tokens += prompt.numel()  # TODO if not packed, surely this is meaningless (pad tokens)
             # num_tokens += (prmpt != self.tokenizer.pad_id).sum().item()  # TODO think it should be this
             # Ensure the cache is setup on the right device, with only as many tokens as we need
@@ -155,7 +160,8 @@ class InferenceRecipe:
             t = time.perf_counter() - t_start
             LOGGER.info(f"Time for inference: {t:.02f} sec total")
             for generated_ids in generated_tokens:  # iterate over samples in the batch
-                LOGGER.info(self.tokenizer.decode(generated_ids))
+                generated_str = self.tokenizer.decode(generated_ids)
+                LOGGER.info(generated_str)
             t_start = time.perf_counter()
 
         # model_size = sum(
