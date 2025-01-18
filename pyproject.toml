@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tunalm"
-authors = [{ name = "Anil Keshwani", email = "anilkeshwani1@gmail.com" }]
+authors = [
+{ name = "Anil Keshwani", email = "anil.keshwani.academic@gmail.com" },
+]
 description = "Scripts wrapping Meta's torchtune package for speech language model training and experimentation"
 requires-python = "==3.10.6"
 license = { file = "LICENSE" }
